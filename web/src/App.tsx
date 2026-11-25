@@ -19,6 +19,8 @@ import { NotFound } from './pages/NotFound';
 import { NotificationsPage } from './pages/Notifications';
 import { OverviewPage } from './pages/Overview';
 import { SettingsPage } from './pages/Settings';
+import { SignUpPage } from './pages/SignUp';
+import { WelcomePage } from './pages/Welcome';
 
 /** The login page, keeping the page someone was on so they come back to it. */
 function toLogin(path: string) {
@@ -50,7 +52,7 @@ function SessionWatcher() {
   const qc = useQueryClient();
   useEffect(() => {
     setSessionEndedHandler(() => {
-      if (/^\/(login|forgot|reset)/.test(window.location.pathname)) return;
+      if (/^\/(login|forgot|reset|signup)/.test(window.location.pathname)) return;
       qc.clear();
       navigate(toLogin(location.pathname + location.search), { replace: true });
     });
@@ -66,6 +68,7 @@ export function AppRoutes() {
       <Routes>
         <Route path="login" element={<LoginPage />} />
         <Route path="forgot" element={<ForgotPage />} />
+        <Route path="signup" element={<SignUpPage />} />
         {/* The emails link to /reset-password (api/src/login); /reset is kept as a short form. */}
         <Route path="reset-password" element={<ResetPage />} />
         <Route path="reset" element={<ResetPage />} />
@@ -86,6 +89,7 @@ export function AppRoutes() {
           <Route path="legal/:tab" element={<LegalPage />} />
           <Route path="legal/case/:debtId" element={<LegalCasePage />} />
           <Route path="import" element={<ImportPage />} />
+          <Route path="welcome" element={<WelcomePage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/:tab" element={<SettingsPage />} />
           <Route path="overview" element={<Navigate to="/" replace />} />

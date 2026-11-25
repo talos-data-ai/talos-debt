@@ -2,6 +2,10 @@ import type {
   ApproveFilingInput, NajizUploadKind, LegalCaseDetail, LegalRow, LegalStatusInput, NajizDetailsInput, NajizRun,
   Approvals, DebtorDetail, DebtPage, DebtStatus, FollowUpRules, ImportReport, Me, NewDebtorInput, Notification, Summary,
   DocType, DocumentInfo, Task, Template, Totals, User, WaitingReminders,
+  Onboarding,
+  OnboardingFileKind,
+  OnboardingInput,
+  SignUpInput,
 } from './types';
 
 export interface DebtQuery {
@@ -35,6 +39,15 @@ export interface DataSource {
 
   // Reading
   me(): Promise<Me>;
+
+  // Sign-up and onboarding (7.5)
+  /** Create the company and its owner's account, and log in. */
+  signUp(input: SignUpInput): Promise<void>;
+  onboarding(): Promise<Onboarding>;
+  saveOnboarding(input: OnboardingInput): Promise<Onboarding>;
+  uploadOnboardingFile(kind: OnboardingFileKind, file: File): Promise<Onboarding>;
+  /** The authorization letter for the owner to sign, or null until its wording is final. */
+  authorizationTemplateUrl(): string | null;
   totals(): Promise<Totals>;
   summary(): Promise<Summary>;
   debts(q: DebtQuery): Promise<DebtPage>;

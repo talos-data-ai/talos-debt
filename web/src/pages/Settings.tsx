@@ -58,7 +58,8 @@ export function SettingsPage() {
 
 // ------------------------------------------------------------ follow-up rules
 
-function RulesForm() {
+/** The follow-up rules. Onboarding (7.5) uses it too, with a button to keep the defaults and go on. */
+export function RulesForm({ onDone, doneLabel }: { onDone?: () => void; doneLabel?: string } = {}) {
   const { t } = useI18n();
   const me = useMe();
   const rules = useRules();
@@ -116,6 +117,7 @@ function RulesForm() {
       onSuccess: (saved) => {
         setF(saved);
         toast(t('common.saved'));
+        onDone?.();
       },
       onError: (err) => setErrors({ form: errorText(err, t) }),
     });
@@ -180,7 +182,20 @@ function RulesForm() {
       </fieldset>
 
       <FormError message={errors.form} />
-      {canChange && (
+      {canChange && onDone && (
+        <div className="form-actions">
+          {changes.length > 0 ? (
+            <button type="submit" className="btn btn-primary" disabled={update.isPending} aria-busy={update.isPending}>
+              {doneLabel ?? t('common.save')}
+            </button>
+          ) : (
+            <button type="button" className="btn btn-primary" onClick={onDone}>
+              {doneLabel ?? t('common.save')}
+            </button>
+          )}
+        </div>
+      )}
+      {canChange && !onDone && (
         <div className="form-actions">
           <button type="button" className="btn btn-quiet" disabled={!changes.length} onClick={() => (setF(original), setErrors({}))}>
             {t('common.cancel')}

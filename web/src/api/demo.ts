@@ -9,7 +9,7 @@ import { ApiError, type DataSource, type DebtQuery } from './source';
 import type {
   LegalCaseDetail, LegalEvent, LegalRow, LegalStage, NajizCaseStep, NajizField, NajizRun,
   Approvals, DebtorDetail, DebtRow, DebtStatus, Debtor, DocumentInfo, FollowUpRules, ImportReport, Language, Notification, Phone, Summary,
-  Task, Template, TimelineEvent, User, WaitingReminder,
+  Task, Template, TimelineEvent, User, WaitingReminder, Onboarding, OnboardingStep, FileLite,
 } from './types';
 
 const CLIENT = '11111111-1111-4111-8111-111111111111';
@@ -200,6 +200,45 @@ const notifications: Notification[] = [
   { id: 'n5', kind: 'legal_ready', title: 'DBT-2026-0006 (Bilal Ahmed) is ready for legal: 5 reminders and no reply', target_table: 'app.debts', target_id: bilal.debt_id, read_at: null, created_at: ago(26), data: { event: 'legal_ready', name: bilal.full_name, ref: bilal.ref_code, reminders: 5 } },
   { id: 'n6', kind: 'system', title: 'Daily summary: 9 reminders sent, 3 replies, 1 promise to pay, 2 payments to review', target_table: 'daily_summary', target_id: null, read_at: ago(30), created_at: ago(31), data: { event: 'summary', summary: { reminders_sent: 9, replies: 3, promises: 1, payments_to_review: 2 } } },
 ];
+
+// ---------------------------------------------------------------- sign-up and onboarding (7.5)
+
+/** A company that has just signed up: the company step is half done. */
+const setup = {
+  data: {
+    plan: 'legal',
+    period: 'monthly',
+    trial_ends_at: new Date(NOW + 14 * 86_400_000).toISOString(),
+    company: {
+      legal_name: 'Al Nokhba Delivery Co.', cr_number: '4030000000', trade_name: null, unified_number: null, sector: 'logistics',
+      activity: null, vat_number: null, cr_file: null, contract_file: null,
+    },
+    owner: { name: 'Khalid Al-Nokhba', phone: '+966500000100', email: 'khalid@alnokhba.example', id_type: null, id_last4: null },
+    bank: { bank_name: null, iban: null, letter: null },
+    authorization: { file: null, signed_at: null },
+    debtors: 0,
+    steps: [],
+  } as Onboarding,
+  rulesDone: false,
+  debtorsLater: false,
+  /** After a sign-up in the prototype, the sample user is the new company's owner. */
+  signedUpAs: null as string | null,
+};
+const REQUIRED: OnboardingStep[] = ['company', 'owner', 'authorization'];
+function setupNow(): Onboarding {
+  const d = setup.data;
+  const done: Record<OnboardingStep, boolean> = {
+    company: !!d.company.unified_number && !!d.company.cr_file,
+    owner: !!d.owner.id_last4,
+    bank: !!d.bank.iban,
+    authorization: !!d.authorization.file,
+    rules: setup.rulesDone,
+    debtors: d.debtors > 0 || setup.debtorsLater,
+  };
+  d.steps = (Object.keys(done) as OnboardingStep[]).map((key) => ({ key, done: done[key], required: REQUIRED.includes(key) }));
+  return d;
+}
+const fileLite = (file: File): FileLite => ({ name: file.name, size_bytes: String(file.size), uploaded_at: new Date().toISOString() });
 
 const pause = <T>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), 120));
 const done = () => pause(undefined);
@@ -396,8 +435,59 @@ export const demoSource: DataSource = {
   checkResetLink: () => pause({ kind: 'reset' as const, fullName: 'Noura Al-Qahtani', email: 'noura@alnokhba.example' }),
   resetPassword: done,
 
-  me: () => pause({ user: { id: 'u1', fullName: 'Noura Al-Qahtani', role: 'staff' as const },
-    client: { id: CLIENT, legal_name: 'Al Nokhba Delivery Co.', trade_name: 'Al Nokhba Delivery', sector: 'logistics', plan: 'growth', status: 'active' } }),
+  signUp: async (input) => {
+    await pause(null);
+    if (input.cr_number === '7000000000') throw new ApiError(409, 'company_exists', 'This company already has an account.');
+    setup.data.company.legal_name = input.legal_name;
+    setup.data.company.cr_number = input.cr_number;
+    setup.data.plan = input.plan;
+    setup.data.period = input.period;
+    setup.data.owner = { ...setup.data.owner, name: input.full_name, email: input.email, phone: input.phone };
+    setup.signedUpAs = input.full_name;
+  },
+  onboarding: () => pause(setupNow()),
+  saveOnboarding: async (input) => {
+    const d = setup.data;
+    if (input.step === 'company') {
+      if (!/^7\d{9}$/.test(input.unified_number)) throw new ApiError(400, 'invalid', 'The unified number has 10 digits and starts with 7.');
+      d.company = { ...d.company, trade_name: input.trade_name || null, unified_number: input.unified_number, sector: input.sector, activity: input.activity || null, vat_number: input.vat_number || null };
+    } else if (input.step === 'owner') {
+      if (input.id_number && !/^[12]\d{9}$/.test(input.id_number)) throw new ApiError(400, 'invalid', 'The ID number has 10 digits and starts with 1 or 2.');
+      d.owner = { name: input.name, phone: input.phone, email: input.email, id_type: input.id_type, id_last4: input.id_number ? input.id_number.slice(-4) : d.owner.id_last4 };
+    } else if (input.step === 'bank') {
+      const iban = input.iban.replace(/\s/g, '').toUpperCase();
+      if (!/^SA\d{22}$/.test(iban)) throw new ApiError(400, 'invalid', 'A Saudi IBAN is SA followed by 22 digits.');
+      d.bank = { ...d.bank, bank_name: input.bank_name, iban };
+    } else if (input.step === 'rules') {
+      setup.rulesDone = true;
+    } else {
+      setup.debtorsLater = true;
+    }
+    return pause(setupNow());
+  },
+  uploadOnboardingFile: async (kind, file) => {
+    const d = setup.data;
+    if (kind === 'cr') d.company.cr_file = fileLite(file);
+    if (kind === 'establishment_contract') d.company.contract_file = fileLite(file);
+    if (kind === 'iban_letter') d.bank.letter = fileLite(file);
+    if (kind === 'authorization') d.authorization = { file: fileLite(file), signed_at: new Date().toISOString() };
+    return pause(setupNow());
+  },
+  authorizationTemplateUrl: () => null,
+
+  me: () =>
+    pause(
+      setup.signedUpAs
+        ? {
+            user: { id: 'u1', fullName: setup.signedUpAs, role: 'owner' as const },
+            client: {
+              id: CLIENT, legal_name: setup.data.company.legal_name, trade_name: null, sector: setup.data.company.sector, plan: setup.data.plan,
+              status: setupNow().steps.every((x) => !x.required || x.done) ? 'active' : 'onboarding',
+            },
+          }
+        : { user: { id: 'u1', fullName: 'Noura Al-Qahtani', role: 'staff' as const },
+            client: { id: CLIENT, legal_name: 'Al Nokhba Delivery Co.', trade_name: 'Al Nokhba Delivery', sector: 'logistics', plan: 'growth', status: 'active' } },
+    ),
   totals: () => {
     const open = debts.filter((d) => !['paid', 'closed', 'written_off'].includes(d.status));
     const enforceable = open.filter((d) => d.directly_enforceable);

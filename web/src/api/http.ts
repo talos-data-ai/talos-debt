@@ -7,7 +7,7 @@
  */
 import { ApiError, type DataSource, type DebtQuery } from './source';
 import noteTemplate from '../assets/promissory-note-template.docx?url';
-import type { DocumentInfo, ImportReport, LegalCaseDetail, LegalRow, NajizRun } from './types';
+import type { DocumentInfo, ImportReport, LegalCaseDetail, LegalRow, NajizRun, Onboarding } from './types';
 
 /** Called when the session ends (401), so the app can show the login page. */
 let onSessionEnded: () => void = () => undefined;
@@ -57,6 +57,18 @@ export const httpSource: DataSource = {
   logout: async () => {
     await request('POST', '/api/auth/logout', undefined, { auth: false });
   },
+  signUp: async (input) => {
+    await request('POST', '/api/signup', input, { auth: false });
+  },
+  onboarding: async () => (await request<{ onboarding: Onboarding }>('GET', '/api/onboarding')).onboarding,
+  saveOnboarding: async ({ step, ...body }) => (await request<{ onboarding: Onboarding }>('PATCH', `/api/onboarding/${step}`, body)).onboarding,
+  uploadOnboardingFile: async (kind, file) => {
+    const form = new FormData();
+    form.append('kind', kind);
+    form.append('file', file, file.name);
+    return (await request<{ onboarding: Onboarding }>('POST', '/api/onboarding/files', form)).onboarding;
+  },
+  authorizationTemplateUrl: () => null,
   forgotPassword: async (email) => {
     await request('POST', '/api/auth/forgot', { email }, { auth: false });
   },

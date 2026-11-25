@@ -27,7 +27,7 @@ export function DebtorsPage() {
   const rules = useRules();
   const me = useMe();
   const canEdit = me.data?.user.role !== 'viewer';
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(params.get('add') === '1');
   const max = rules.data?.max_attempts ?? 5;
   const statuses = summary.data?.statuses ?? {};
   const countOf = (s: DebtStatus) => statuses[s]?.count ?? 0;

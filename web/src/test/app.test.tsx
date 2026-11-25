@@ -814,3 +814,84 @@ describe('legal and Najiz filing', () => {
     await waitFor(() => expect(sent).toEqual([{ status: 'order_issued', najiz_request_number: '401014800012345', note: 'Text message from Najiz' }]));
   });
 });
+
+describe('sign-up and onboarding (7.5)', () => {
+  it('the login page leads to sign-up, which checks every field, in Arabic', async () => {
+    const user = userEvent.setup();
+    renderAt('/login', demoSource, 'ar');
+    await user.click(await screen.findByRole('link', { name: ar('login.startTrial') }));
+    expect(await screen.findByRole('heading', { name: ar('signup.title') })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: ar('signup.submit') }));
+    expect(screen.getByText(ar('signup.phoneBad'))).toBeInTheDocument();
+    expect(screen.getByText(ar('signup.emailBad'))).toBeInTheDocument();
+    expect(screen.getByText(ar('signup.crBad'))).toBeInTheDocument();
+    expect(screen.getByText(ar('reset.tooShort'))).toBeInTheDocument();
+  });
+
+  it('the plan comes from the website link; a company that already has an account is told so', async () => {
+    const user = userEvent.setup();
+    renderAt('/signup?plan=najiz&period=yearly');
+    expect(await screen.findByRole('radio', { name: new RegExp(en('plan.najiz')) })).toBeChecked();
+    expect(screen.getByRole('radio', { name: en('signup.yearly') })).toBeChecked();
+    await user.type(screen.getByLabelText(en('signup.fullName')), 'Khalid Al-Nokhba');
+    await user.type(screen.getByLabelText(en('signup.phone')), '0500000100');
+    await user.type(screen.getByLabelText(en('signup.email')), 'khalid@alnokhba.example');
+    await user.type(screen.getByLabelText(en('login.password')), 'a long enough password');
+    await user.type(screen.getByLabelText(en('signup.legalName')), 'Al Nokhba Delivery Co.');
+    await user.type(screen.getByLabelText(en('signup.cr')), '7000000000');
+    await user.click(screen.getByRole('button', { name: en('signup.submit') }));
+    expect(await screen.findByText(en('error.company_exists'))).toBeInTheDocument();
+  });
+
+  it('a new company goes from sign-up to setup, step by step, with a progress bar', async () => {
+    const signed: unknown[] = [];
+    const user = userEvent.setup({ applyAccept: false });
+    renderAt('/signup', { ...withRole('owner'), signUp: async (i) => void signed.push(i) });
+    await user.type(await screen.findByLabelText(en('signup.fullName')), 'Khalid');
+    await user.type(screen.getByLabelText(en('signup.phone')), '0500000100');
+    await user.type(screen.getByLabelText(en('signup.email')), 'k@alnokhba.example');
+    await user.type(screen.getByLabelText(en('login.password')), 'a long enough password');
+    await user.type(screen.getByLabelText(en('signup.legalName')), 'Al Nokhba Delivery Co.');
+    await user.type(screen.getByLabelText(en('signup.cr')), '4030000000');
+    await user.click(screen.getByRole('button', { name: en('signup.submit') }));
+    expect(await screen.findByRole('heading', { name: en('welcome.title') })).toBeInTheDocument();
+    expect(signed).toEqual([expect.objectContaining({ plan: 'legal', period: 'monthly', cr_number: '4030000000' })]);
+    expect(screen.getByText(en('welcome.progress', { done: 0, total: 6 }))).toBeInTheDocument();
+
+    // Company: the unified number is checked, and the commercial registration must be a PDF.
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+    expect(screen.getByText(en('welcome.unifiedBad'))).toBeInTheDocument();
+    await user.type(screen.getByLabelText(en('welcome.unified')), '7000000001');
+    const cr = screen.getByLabelText(en('welcome.file.cr'));
+    await user.upload(cr, new File(['x'], 'cr.png', { type: 'image/png' }));
+    expect(await screen.findByText(en('welcome.pdfOnly'))).toBeInTheDocument();
+    await user.upload(cr, new File(['%PDF-'], 'cr.pdf', { type: 'application/pdf' }));
+    expect(await screen.findByText('cr.pdf')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+
+    // Owner: the ID number is checked, then only its last four digits are shown.
+    expect(await screen.findByRole('heading', { name: en('welcome.step.owner') })).toBeInTheDocument();
+    expect(screen.getByText(en('welcome.progress', { done: 1, total: 6 }))).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: en('idtype.iqama') }));
+    await user.type(screen.getByLabelText(en('welcome.idNumber')), '1000000100');
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+    expect(screen.getByText(en('welcome.idBadIqama'))).toBeInTheDocument();
+    await user.clear(screen.getByLabelText(en('welcome.idNumber')));
+    await user.type(screen.getByLabelText(en('welcome.idNumber')), '2000000100');
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+    expect(await screen.findByRole('heading', { name: en('welcome.step.bank') })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: new RegExp(en('welcome.step.owner')) }));
+    expect(await screen.findByText(en('welcome.idSaved', { last4: '0100' }))).toBeInTheDocument();
+  });
+
+  it('a company still setting up sees a banner on every page that leads to setup', async () => {
+    const user = userEvent.setup();
+    renderAt('/debtors', {
+      ...demoSource,
+      me: async () => ({ ...(await demoSource.me()), client: { ...(await demoSource.me()).client!, status: 'onboarding' } }),
+    }, 'ar');
+    await user.click(await screen.findByRole('link', { name: ar('welcome.bannerCta') }));
+    expect(await screen.findByRole('heading', { name: ar('welcome.title') })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: ar('welcome.bannerCta') })).not.toBeInTheDocument();
+  });
+});
