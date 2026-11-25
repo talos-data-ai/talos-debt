@@ -11,6 +11,7 @@ import { legalRoutes } from './routes/legal.js';
 import { ChromiumPdfRenderer, type PdfRenderer } from './legal/pdf.js';
 import { UPLOAD_LIMITS } from './routes/upload.js';
 import { najizRoutes } from './routes/najiz.js';
+import { contactRoutes } from './routes/contact.js';
 import { LocalDiskStorage, type FileStorage } from './storage/storage.js';
 import { messageRoutes } from './routes/messages.js';
 import { paymentRoutes } from './routes/payments.js';
@@ -42,6 +43,8 @@ export interface AppDeps {
   pdf?: PdfRenderer;
   /** Login attempt limiter; tests pass a generous one. */
   loginLimiter?: RateLimiter;
+  /** Contact form limiter (website). */
+  contactLimiter?: RateLimiter;
 }
 
 export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): FastifyInstance {
@@ -83,6 +86,9 @@ export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): Fas
   app.register(async (open) => {
     loginRoutes(open, { pool, config, mailer, limiter: deps.loginLimiter });
   });
+
+  // The website's contact form: no login, its own body parser, emailed to Talos.
+  app.register(async (site) => contactRoutes(site, { config, mailer, limiter: deps.contactLimiter }));
 
   // Everything else under /api needs a logged-in user of a client.
   app.register(async (api) => {

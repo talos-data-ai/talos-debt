@@ -22,6 +22,7 @@ Interface languages: Arabic (right to left) and English. Debtor message language
 | `/api/src/scheduler` | Scheduler that sends reminders, checks promises and marks debts ready for legal (runs as its own process: `npm run scheduler`). It lives in `/api` to share its database, WhatsApp and stop-rule code | Sal |
 | `/api/src/najiz` | Najiz worker and robot that file on Najiz for clients (runs as its own process: `npm run najiz`) | Sal |
 | `/web` | Client dashboard and CRM (React) | Sal |
+| `/site` | The public website (Phase 7): a static site in Arabic and English | Sal |
 | `/docs` | Schema diagram and documentation | Both |
 
 **Rule:** only edit files in your own area. Schema changes go to `/db/migrations` as a new numbered file, through a pull request reviewed by Karam. Never edit an existing migration that has been applied.
@@ -138,6 +139,17 @@ Other files in `/db`: `db/roles/login_roles.sql` and `db/roles/check_login_roles
 - **Status checks (5.5):** `POST /api/najiz/checks` (all open requests, or `debt_ids`) starts a `status_check` run: one sign-in and one Nafath approval, then the robot searches each request number in the execution list and reads its status and circuit. The case keeps the status exactly as Najiz writes it, with `najiz_status_checked_at`; a status that changed adds a `najiz_check` event and a `najiz_status` notification. Talos never changes the case's own status from a check. The dashboard explains "قيد المعالجة" and "قيد التنفيذ" in plain words (`web/src/lib/najiz.ts`) and shows any other status as Najiz writes it (Sal, 11 November 2026). A request Najiz cannot find stops the round.
 - The Nafath number is not sent to the owner on WhatsApp yet: that needs a template approved by Meta (step 1.10). The dashboard asks staff to tell the owner instead.
 
+### Website (Phase 7, `/site`)
+
+- **Address and name (Sal, 25 November 2026):** the site lives at `https://debt.talosksa.com`. The product is **تالوس لتحصيل الديون** in Arabic and **Talos Debt Collection** in English; in Arabic text Talos is written تالوس, but the header next to the logo always says Talos.
+- **Plain static pages, no script:** `npm run build` writes `site/dist`: home and pricing in Arabic (`/`, `/pricing/`) and English (`/en/`, `/en/pricing/`), the thanks and sorry pages after the contact form (not for search engines), `llms.txt`, `sitemap.xml`, `robots.txt`. Styles are inside each page and the fonts are served from the site, so nothing loads from another site. `npm run serve` shows it on port 4321.
+- **Every word is in `site/src/content.ts`**, Arabic and English with the same shape (the compiler and a test check it). Say only what the product does today: the questions and answers are read and quoted by AI assistants. No prices, no client names, no em dashes (tested).
+- **Settings, not addresses, numbers or prices in code:** `SITE_URL`, `APP_URL` (for "Sign in"), `FORM_URL` (the API's contact form route), `CONTACT_WHATSAPP`, `CONTACT_PHONE`, and `PRICING_FILE` (a JSON file kept outside the repository, see `Pricing` in `site/src/build.ts`; a wrong file stops the build). A production build (`NODE_ENV=production`) refuses to run without https addresses, both contact numbers and the prices.
+- **Plans (Sal, 25 November 2026):** three plans (Follow-up, Legal, Najiz), each from 250 debtors, paid monthly or yearly; 14 days free; the first 10 companies get their first month free (`founding_offer` in the prices file, turned off once they have joined); no setup fee. The monthly and yearly switch is two radio buttons and CSS. The yearly saving is worked out from the text in halalas, never as a number. What each plan includes is enforced in the product with 7.7.
+- **Contact form:** a plain HTML form posted to `POST /api/public/contact` (`api/src/routes/contact.ts`), which emails it to `CONTACT_INBOX` and stores nothing, then sends the visitor to the thanks or sorry page in their language. Only from the website's address (Origin), a hidden field that only bots fill, 5 messages an hour per address. It is off (503) until the API has `SITE_URL` and `CONTACT_INBOX`.
+- **Search engines and AI assistants:** each page has its canonical address, `hreflang` links to the other language, a description, and structured data for the company, the product and every question. `llms.txt` repeats the facts in plain English.
+- Tests (`npm test`) build the site and check it in a real Chromium at desktop and phone sizes with accessibility checks. They run in CI.
+
 ### Getting data in (Phase 3)
 
 - **One set of rules for every value that comes in.** `api/src/intake/normalize.ts` (phones, ID numbers, amounts, dates, list values in English or Arabic) and `api/src/intake/records.ts` (a whole debtor, debt or instrument) are used by both manual entry and the Excel import. Change a rule there, never in a route, so both stay the same.
@@ -187,7 +199,7 @@ This is the full list of steps to build the product. Finished steps are ticked a
 
 Owner: **S** = Sal (API, worker, web, AI), **K** = Karam (database, infrastructure, accounts), **S+K** = together.
 
-### Where things stand (last updated 11 November 2026)
+### Where things stand (last updated 25 November 2026)
 
 - Merged: the database, the back end API, WhatsApp reminders out, and the WhatsApp agent that reads replies and answers them.
 - Phase 2 (the scheduler) is built: automatic reminders (or staff-approved ones), promise checks, the legal-ready step and a daily summary. Tested with a fake WhatsApp sender only. Its migration `0005_scheduler.sql` is in Karam's area and waits for his review.
@@ -197,7 +209,8 @@ Owner: **S** = Sal (API, worker, web, AI), **K** = Karam (database, infrastructu
 - Nothing is hosted yet. There is no production database and no email sending set up (SMTP), so password emails are only written to a folder in development.
 - The database setup is ready for a managed database (no superuser needed): the migrations, then one script. It was tested on a simulated one; see "Setting up a new database".
 - **Working on now: Phase 5** (legal escalation and Najiz filing). The rest of Phase 1 waits for Meta business verification (0.7) and comes after Phase 5. Sal's screen recordings of the Najiz steps are written up in `docs/najiz-filing.md`. Its data is in migration `0008_najiz_filing_data.sql`, waiting for Karam's review. Built: the Legal page, the case page with approval (5.2), status by hand (5.3) and the note template (5.0b), designs approved by Sal. Built too: the filing pack PDF (5.1) and filing from Talos (5.4, migration `0009_najiz_runs.sql` waiting for Karam's review), and status checks on Najiz (5.5), both tested against a fake Najiz only: the first real run needs Sal watching (5.4b). Services after filing (5.6) are a later feature (Sal, 11 November 2026). Phase 5 is done apart from 5.4b and 5.6; next is the rest of Phase 1 once Meta verifies the business.
-- Planned but not started: the usability check with a pilot client (4.0c), the website, subscriptions and billing (Phase 7). The dashboard already has a Legal page listing debts ready for legal, where Phase 5 adds the filing.
+- **Phase 7 started (25 November 2026):** the website at `debt.talosksa.com` with search engine and AI assistant pages, the pricing page and the contact form (7.1 to 7.4) is in `/site`. Next: sign-up and onboarding (7.5), payments and billing (7.6, 7.7), and e-invoicing (7.8).
+- Planned but not started: the usability check with a pilot client (4.0c). The dashboard already has a Legal page listing debts ready for legal, where Phase 5 adds the filing.
 - For Karam: the document upload (`api/src/storage/documents.ts` `DOC_TYPES` and `CLIENT_DOC_TYPES` in `routes/documents.ts`) does not take the new types `partners_decision` and `najiz_receipt` from migration 0008 yet. Partners' decisions are optional on Najiz, so this blocks nothing today; the receipt is needed for 5.4.
 - For Karam: the Excel import cannot read a workbook whose cell comments were saved by some tools (openpyxl, found by the end-to-end run); files saved by Excel are fine. `exceljs` fails on them in `api/src/import/parse.ts`.
 - Open decision: should the agent reply outside working hours (`AGENT_REPLY_OUTSIDE_HOURS`)? Today the reply is held and staff are alerted.
@@ -322,12 +335,13 @@ Decided by Sal (10 November 2026), from his recordings of Najiz (`docs/najiz-fil
 
 ### Phase 7: Website, subscriptions and billing
 
-Prices and plan details are kept out of this public repository: they are loaded from settings or the payment provider.
+Prices are kept out of this public repository: they are loaded from settings or the payment provider. The plan names and what each includes are public on the website, so they live in `site/src/content.ts`.
 
-- [ ] 7.1 Landing page in Arabic and English, designed to the same bar as the product: fast (static or server-rendered), clear offer, how it works, trust (data in Saudi Arabia, legal process), questions and answers, call to action (S)
-- [ ] 7.2 Search engines: page titles and descriptions, Arabic and English versions linked to each other (`hreflang`), sitemap, structured data (company, software product, questions and answers), fast loading on phones (S)
-- [ ] 7.3 AI assistants: plain factual pages AI assistants can read and quote, an `llms.txt` file, answers to common questions written as full sentences, no key content hidden behind scripts (S)
-- [ ] 7.4 Pricing and subscription page: plans by number of debtors, monthly or yearly, free trial (S)
+- [x] ~~7.1 Landing page in Arabic and English, designed to the same bar as the product: fast (static or server-rendered), clear offer, how it works, trust (data in Saudi Arabia, legal process), questions and answers, call to action (S)~~ (`site/`, design approved by Sal)
+- [x] ~~7.2 Search engines: page titles and descriptions, Arabic and English versions linked to each other (`hreflang`), sitemap, structured data (company, software product, questions and answers), fast loading on phones (S)~~ (`site/src/build.ts`)
+- [x] ~~7.3 AI assistants: plain factual pages AI assistants can read and quote, an `llms.txt` file, answers to common questions written as full sentences, no key content hidden behind scripts (S)~~ (`site/dist/llms.txt`, questions in `site/src/content.ts`)
+- [ ] 7.1b Host the website (static files) at `debt.talosksa.com` with its settings and the prices file; the API's `SITE_URL` and `CONTACT_INBOX`; a picture for link previews (K, with 6.4)
+- [x] ~~7.4 Pricing and subscription page: plans by number of debtors, monthly or yearly, free trial (S)~~ (`site/`, `/pricing/`, prices from `PRICING_FILE`)
 - [ ] 7.5 Self sign-up and onboarding: company details, commercial registration and establishment contract upload, owner details, IBAN, signed authorization, follow-up rules, first Excel import, with a progress bar (S)
 - [ ] 7.6 Subscription payments: payment gateway account (mada, Visa and Mastercard, Apple Pay), recurring billing, trial ending, failed payment emails (S, gateway account by K)
 - [ ] 7.7 Billing in the dashboard: current plan, change plan, card, invoices; plan limits enforced (number of active debtors) (S)

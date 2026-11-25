@@ -1,0 +1,24 @@
+{
+  "name": "talos-debt-site",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The public website: a fast static site in Arabic and English (Phase 7).",
+  "scripts": {
+    "build": "tsx src/build.ts",
+    "serve": "tsx src/serve.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && vitest run"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-sans": "5.2.5",
+    "@fontsource/ibm-plex-sans-arabic": "5.2.5",
+    "@fontsource/space-grotesk": "5.2.5",
+    "@types/node": "22.20.7",
+    "axe-core": "4.10.2",
+    "playwright": "1.63.0",
+    "tsx": "4.23.15",
+    "typescript": "5.7.3",
+    "vitest": "3.0.5"
+  }
+}
