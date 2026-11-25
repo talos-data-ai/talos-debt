@@ -75,6 +75,9 @@ const schema = z.object({
     .default('08:00'),
 
   // The public website's contact form (Phase 7): where the site is, and who gets the messages.
+  // Sign-up (7.5): the free trial, and how many companies get the founding offer (0 turns it off).
+  TRIAL_DAYS: z.coerce.number().int().min(1).max(60).default(14),
+  FOUNDING_LIMIT: z.coerce.number().int().min(0).max(100).default(10),
   SITE_URL: z.url().optional(),
   CONTACT_INBOX: z.email().optional(),
 

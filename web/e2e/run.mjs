@@ -661,6 +661,116 @@ await step('notifications: shown in both languages, open the right page, mark al
   await page.context().close();
 });
 
+console.log('\nSign-up and setup');
+
+/** A fake Saudi ID number that passes its check digit. */
+function validId(prefix, n) {
+  const body = `${prefix}${String(n).padStart(8, '0')}`;
+  for (let d = 0; d <= 9; d++) {
+    const id = body + d;
+    let sum = 0;
+    for (let i = 0; i < 10; i++) {
+      const x = Number(id[i]);
+      sum += i % 2 === 0 ? Math.floor((x * 2) / 10) + ((x * 2) % 10) : x;
+    }
+    if (sum % 10 === 0) return id;
+  }
+}
+
+for (const [lang, theme, width, height, mobile] of [['en', 'dark', 390, 844, true], ['ar', 'light', 1366, 900, false]]) {
+  await step(`sign-up pages, ${lang} ${theme} ${width}px: fit the screen and pass the accessibility check`, async () => {
+    const t = lang === 'ar' ? ar : en;
+    const page = await newPage({ lang, theme, width, height, mobile });
+    await page.goto(`${APP}/signup?plan=follow_up&period=yearly`);
+    await page.getByRole('heading', { name: t['signup.chooseTitle'] }).waitFor();
+    await noSideScroll(page, `sign-up plans ${lang} ${width}`);
+    await axe(page, `sign-up plans ${lang} ${theme} ${width}`);
+    if (lang === 'ar') assert.deepEqual(await englishLeftInArabic(page), [], 'English left on the Arabic plans page');
+    await shot(page, `${lang}-${theme}-${width}_signup`);
+    await page.getByRole('button', { name: t['signup.continueWith'].replace('{plan}', t['plan.follow_up']) }).click();
+    await page.getByRole('heading', { name: t['signup.detailsTitle'] }).waitFor();
+    await noSideScroll(page, `sign-up details ${lang} ${width}`);
+    await axe(page, `sign-up details ${lang} ${theme} ${width}`);
+    await shot(page, `${lang}-${theme}-${width}_signup-details`);
+    await page.context().close();
+  });
+}
+
+await step('sign up in Arabic: one plan only, the account and the terms, then setup until Talos may message', async () => {
+  const t = ar;
+  const page = await newPage({ lang: 'ar' });
+  await page.goto(`${APP}/login`);
+  await page.getByRole('link', { name: t['login.startTrial'] }).click();
+  await page.getByRole('heading', { name: t['signup.chooseTitle'] }).waitFor();
+
+  // Only one plan can be chosen.
+  const radios = page.getByRole('radiogroup', { name: t['signup.plan'] }).getByRole('radio');
+  assert.equal(await radios.count(), 3);
+  await page.getByText(t['plan.najiz.for']).click();
+  await page.getByText(t['plan.follow_up.for']).click();
+  await page.getByText(t['plan.najiz.for']).click();
+  const checked = [];
+  for (let i = 0; i < 3; i++) checked.push(await radios.nth(i).isChecked());
+  assert.deepEqual(checked, [false, false, true]);
+  await page.getByRole('button', { name: t['signup.continueWith'].replace('{plan}', t['plan.najiz']) }).click();
+
+  // The account. Without the terms nothing is created.
+  await page.getByRole('heading', { name: t['signup.detailsTitle'] }).waitFor();
+  await page.getByLabel(t['signup.fullName']).fill('خالد التجريبي');
+  await page.getByLabel(t['signup.phone']).fill('0500000777');
+  await page.getByLabel(t['signup.email']).fill('khalid@e2e-signup.example');
+  await page.getByLabel(t['login.password'], { exact: true }).fill('a long enough password');
+  await page.getByLabel(t['signup.legalName']).fill('مؤسسة التجربة للتوصيل');
+  await page.getByLabel(t['signup.cr']).fill('4030000777');
+  await page.getByRole('button', { name: t['signup.submit'] }).click();
+  await page.getByText(t['signup.acceptNeeded']).waitFor();
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: t['signup.submit'] }).click();
+
+  // Signed in, on setup, as the owner of a company still setting up.
+  await page.waitForURL(/\/welcome/);
+  await page.getByRole('heading', { name: t['welcome.title'] }).waitFor();
+  const api = async (path) => (await page.request.get(`${APP}${path}`)).json();
+  const me = await api('/api/me');
+  assert.equal(me.user.role, 'owner');
+  assert.equal(me.client.plan, 'najiz');
+  assert.equal(me.client.status, 'onboarding');
+  await axe(page, 'setup ar');
+  assert.deepEqual(await englishLeftInArabic(page), [], 'English left on the Arabic setup page');
+
+  // Company: the unified number and the commercial registration.
+  await page.getByLabel(t['welcome.unified']).fill('7000000777');
+  await page.getByLabel(t['welcome.file.cr']).setInputFiles(join(FILES, 'note.pdf'));
+  await page.getByText('note.pdf').first().waitFor();
+  await page.getByRole('button', { name: t['welcome.saveNext'] }).click();
+
+  // Owner: a mistyped ID is caught on the page, a good one is saved and shown as its last four digits.
+  await page.getByRole('heading', { name: t['welcome.step.owner'] }).waitFor();
+  const id = validId('1', 777);
+  await page.getByLabel(t['welcome.idNumber']).fill(`${id.slice(0, 9)}${(Number(id[9]) + 1) % 10}`);
+  await page.getByRole('button', { name: t['welcome.saveNext'] }).click();
+  await page.getByText(t['welcome.idCheck']).waitFor();
+  await page.getByLabel(t['welcome.idNumber']).fill(id);
+  await page.getByRole('button', { name: t['welcome.saveNext'] }).click();
+  await page.getByRole('heading', { name: t['welcome.step.bank'] }).waitFor();
+  const o = (await api('/api/onboarding')).onboarding;
+  assert.equal(o.owner.id_last4, id.slice(-4));
+  assert.ok(!JSON.stringify(o).includes(id), 'the full ID number never reaches the browser');
+  assert.equal(o.status, 'onboarding');
+
+  // The signed letter finishes setup: the company becomes active.
+  await page.getByRole('button', { name: new RegExp(t['welcome.step.authorization']) }).click();
+  const letter = page.getByRole('link', { name: t['welcome.authDownload'] });
+  assert.equal(await letter.getAttribute('download'), 'authorization-letter.docx');
+  await page.getByLabel(t['welcome.file.authorization']).setInputFiles(join(FILES, 'note.pdf'));
+  await page.getByRole('button', { name: t['welcome.next'] }).click();
+  const after = (await api('/api/onboarding')).onboarding;
+  assert.equal(after.status, 'active');
+  assert.ok(after.authorization.signed_at);
+  assert.equal((await api('/api/me')).client.status, 'active');
+  await page.context().close();
+});
+
 await step('a session that ends while the page is open goes back to login', async () => {
   const page = await signedIn();
   await page.context().clearCookies();

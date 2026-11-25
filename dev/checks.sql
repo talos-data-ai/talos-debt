@@ -297,5 +297,49 @@ BEGIN
   RAISE NOTICE 'PASS 14: Najiz filing data follows its rules';
 END $$;
 
+-- ---------------------------------------------------------------------
+-- 15. Sign-up and onboarding (0010)
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE r record;
+BEGIN
+  SELECT * INTO r FROM auth.sign_up('New Owner', '+966500000300', 'new@demo.example', 'scrypt$x',
+                                    'New Demo Company', '0000000003', 'najiz', 'yearly', '2026-11-25', 14, 10);
+  ASSERT r.trial_ends_at > now() + interval '13 days', 'CHECK 15a FAILED: the trial is not 14 days';
+  ASSERT r.founding_member, 'CHECK 15b FAILED: an early company is not a founding member';
+
+  -- The new company starts in onboarding: nothing may be sent, and every needed step is missing.
+  PERFORM set_config('app.client_id', r.client_id::text, true);
+  ASSERT app.client_messaging_block(r.client_id) = 'setup_not_finished',
+    'CHECK 15c FAILED: a company still setting up could message debtors';
+  ASSERT app.setup_missing(r.client_id) = ARRAY['company', 'owner', 'authorization'],
+    'CHECK 15d FAILED: the missing setup steps are wrong';
+  ASSERT (SELECT role FROM app.users WHERE id = r.user_id) = 'owner', 'CHECK 15e FAILED: the person who signed up is not the owner';
+  ASSERT EXISTS (SELECT 1 FROM app.follow_up_rules WHERE client_id = r.client_id), 'CHECK 15f FAILED: no follow-up rules';
+
+  -- The same company or the same email cannot sign up twice.
+  BEGIN
+    PERFORM auth.sign_up('X', '+966500000301', 'x@demo.example', 'scrypt$x', 'X', '0000000003', 'legal', 'monthly', 'v', 14, 0);
+    RAISE EXCEPTION 'CHECK 15g FAILED: a company signed up twice';
+  EXCEPTION WHEN SQLSTATE 'TL001' THEN NULL;
+  END;
+  BEGIN
+    PERFORM auth.sign_up('X', '+966500000301', 'NEW@demo.example', 'scrypt$x', 'X', '0000000004', 'legal', 'monthly', 'v', 14, 0);
+    RAISE EXCEPTION 'CHECK 15h FAILED: an email was used twice';
+  EXCEPTION WHEN SQLSTATE 'TL002' THEN NULL;
+  END;
+
+  -- Once active: a trial that ended or a failed payment stops messages at once.
+  UPDATE app.clients SET status = 'active', authorization_signed_at = now(), trial_ends_at = now() - interval '1 minute'
+   WHERE id = r.client_id;
+  ASSERT app.client_messaging_block(r.client_id) = 'trial_ended', 'CHECK 15i FAILED: an ended trial could still message';
+  UPDATE app.clients SET billing_status = 'unpaid' WHERE id = r.client_id;
+  ASSERT app.client_messaging_block(r.client_id) = 'payment_needed', 'CHECK 15j FAILED: an unpaid company could still message';
+  UPDATE app.clients SET billing_status = 'active' WHERE id = r.client_id;
+  ASSERT app.client_messaging_block(r.client_id) IS NULL, 'CHECK 15k FAILED: a paying company was blocked';
+
+  RAISE NOTICE 'PASS 15: sign-up and onboarding follow their rules';
+END $$;
+
 ROLLBACK;
 \echo 'All database checks passed.'

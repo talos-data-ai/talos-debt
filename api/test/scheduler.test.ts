@@ -332,6 +332,21 @@ describe('stop rules at the moment of sending', () => {
     expect(result.ran).toEqual([]);
     expect(sender.templates).toHaveLength(0);
   });
+
+  for (const [label, change] of [
+    ['still setting up', `UPDATE app.clients SET status = 'onboarding' WHERE id = $1`],
+    ['whose trial ended', `UPDATE app.clients SET billing_status = 'trial', trial_ends_at = now() - interval '1 minute' WHERE id = $1`],
+    ['whose payment failed', `UPDATE app.clients SET billing_status = 'unpaid' WHERE id = $1`],
+    ['with no signed authorization', `UPDATE app.clients SET authorization_signed_at = NULL WHERE id = $1`],
+  ] as const) {
+    it(`a company ${label} gets no reminders, at once`, async () => {
+      await autoSend(true);
+      await q(change, [CLIENT]);
+      const result = await makeScheduler().tick({ plan: true });
+      expect(result.ran.filter((r) => r.type === 'send_reminder')).toEqual([]);
+      expect(sender.templates).toHaveLength(0);
+    });
+  }
 });
 
 describe('never two reminders for the same debt', () => {

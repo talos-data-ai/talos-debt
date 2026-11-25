@@ -15,12 +15,24 @@ export class SendBlocked extends Error {
       | 'no_active_phone'
       | 'outside_working_hours'
       | 'no_template'
-      | 'not_configured',
+      | 'not_configured'
+      | ClientBlock,
     message: string,
   ) {
     super(message);
   }
 }
+
+/** Why a company's debtors may not be messaged now (app.client_messaging_block, migration 0010). */
+export type ClientBlock = 'setup_not_finished' | 'account_not_active' | 'no_authorization' | 'payment_needed' | 'trial_ended';
+export const CLIENT_BLOCKS: readonly ClientBlock[] = ['setup_not_finished', 'account_not_active', 'no_authorization', 'payment_needed', 'trial_ended'];
+const BLOCK_TEXT: Record<ClientBlock, string> = {
+  setup_not_finished: 'Finish setting up your company first (company, owner and the signed authorization letter)',
+  account_not_active: 'This account is not active',
+  no_authorization: 'Upload the signed authorization letter first',
+  payment_needed: 'A payment is needed before Talos can message debtors again',
+  trial_ended: 'The free trial has ended. Add a card to keep going',
+};
 
 // Debt statuses that must never receive reminders.
 const STOPPED = new Set(['paid', 'disputed', 'paused', 'legal_ready', 'in_legal', 'written_off', 'closed']);
@@ -47,6 +59,7 @@ interface DebtRow {
   client_name: string;
   sender_number_id: string | null;
   sender_phone_number_id: string | null;
+  client_block: ClientBlock | null;
 }
 
 export interface RulesRow {
@@ -124,7 +137,8 @@ export async function sendReminder(
         `SELECT d.id AS debt_id, d.ref_code AS debt_ref, d.amount_outstanding, d.status AS debt_status,
                 dr.id AS debtor_id, dr.full_name AS debtor_name, dr.status AS debtor_status,
                 dr.preferred_language, coalesce(c.trade_name, c.legal_name) AS client_name,
-                c.sender_number_id, sn.phone_number_id AS sender_phone_number_id
+                c.sender_number_id, sn.phone_number_id AS sender_phone_number_id,
+                app.client_messaging_block(c.id) AS client_block
            FROM app.debts d
            JOIN app.debtors dr ON dr.id = d.debtor_id
            JOIN app.clients c ON c.id = d.client_id
@@ -134,6 +148,8 @@ export async function sendReminder(
       )
     ).rows[0];
     if (!debt) throw new SendBlocked('not_found', 'Debt not found');
+    // The company itself may not message anyone yet (setup, trial or payment): checked first.
+    if (debt.client_block) throw new SendBlocked(debt.client_block, BLOCK_TEXT[debt.client_block]);
     if (STOPPED.has(debt.debt_status) || debt.amount_outstanding === '0.00') {
       throw new SendBlocked('debt_not_active', `Reminders are stopped for this debt (status: ${debt.debt_status})`);
     }

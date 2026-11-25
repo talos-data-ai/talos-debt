@@ -211,6 +211,27 @@ describe('stop rules', () => {
     expect(await messageCount(AHMED_DEBT)).toBe(before);
   });
 
+  it('never sends while the company may not message (setup, trial, payment)', async () => {
+    const sender = new FakeSender();
+    const app = await makeApp({ sender });
+    const cases = [
+      [`UPDATE app.clients SET status = 'onboarding' WHERE id = $1`, 409, 'setup_not_finished'],
+      [`UPDATE app.clients SET status = 'active', billing_status = 'unpaid' WHERE id = $1`, 402, 'payment_needed'],
+      [`UPDATE app.clients SET billing_status = 'trial', trial_ends_at = now() - interval '1 minute' WHERE id = $1`, 402, 'trial_ended'],
+    ] as const;
+    try {
+      for (const [sql, status, code] of cases) {
+        await admin.query(sql, [CLIENT]);
+        const res = await send(app, IMRAN_DEBT);
+        expect(res.statusCode, code).toBe(status);
+        expect(res.json().error).toBe(code);
+      }
+      expect(sender.sent).toHaveLength(0);
+    } finally {
+      await admin.query(`UPDATE app.clients SET status = 'active', billing_status = 'active' WHERE id = $1`, [CLIENT]);
+    }
+  });
+
   it('does not send after working hours or on a day off', async () => {
     for (const now of [SUNDAY_930PM, FRIDAY_10AM]) {
       const sender = new FakeSender();

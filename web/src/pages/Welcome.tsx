@@ -7,13 +7,14 @@
 import {
   Building2, CheckCircle2, Circle, Download, FileSpreadsheet, FileText, Landmark, PenLine, Settings2, Upload, UserPlus, UserRound, Users,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useMe, useOnboarding, useSaveOnboarding, useSource, useUploadOnboardingFile } from '../api/hooks';
 import type { FileLite, Onboarding, OnboardingFileKind, OnboardingStep } from '../api/types';
 import { ErrorState, Loading } from '../components/bits';
 import { Field, FormError, errorText } from '../components/ui';
 import { useI18n, type MessageKey } from '../i18n';
+import { ibanOk, saudiIdOk, vatOk } from '../lib/ids';
 import { RulesForm } from './Settings';
 
 const ICONS: Record<OnboardingStep, ReactNode> = {
@@ -33,6 +34,7 @@ export function WelcomePage() {
   const setup = useOnboarding();
   const [step, setStep] = useState<OnboardingStep | 'done' | null>(null);
   const o = setup.data;
+  const justDone = useJustDone(o);
 
   // Open the first step that is not done yet.
   useEffect(() => {
@@ -50,7 +52,7 @@ export function WelcomePage() {
     // The latest data decides: the step just saved counts as done.
     setStep(after.find((k) => !o.steps.find((s) => s.key === k)?.done && k !== from) ?? 'done');
   };
-  const days = Math.max(0, Math.ceil((new Date(o.trial_ends_at).getTime() - Date.now()) / 86_400_000));
+  const days = o.trial_ends_at ? Math.max(0, Math.ceil((new Date(o.trial_ends_at).getTime() - Date.now()) / 86_400_000)) : null;
   const isOwner = me.data?.user.role === 'owner' || me.data?.user.role === 'admin';
 
   return (
@@ -60,10 +62,12 @@ export function WelcomePage() {
           <h1 className="page-title">{t('welcome.title')}</h1>
           <p className="page-sub">{t('welcome.lead')}</p>
         </div>
-        <p className="trial-chip">
-          {t('welcome.trial', { count: days })}
-          <span className="muted"> {t('welcome.trialEnds', { date: formatDate(o.trial_ends_at) })}</span>
-        </p>
+        {o.trial_ends_at && days !== null && (
+          <p className="trial-chip">
+            {t('welcome.trial', { count: days })}
+            <span className="muted"> {t('welcome.trialEnds', { date: formatDate(o.trial_ends_at) })}</span>
+          </p>
+        )}
       </header>
 
       <div className="setup-progress" role="group" aria-label={t('welcome.progress', { done, total: o.steps.length })}>
@@ -73,9 +77,12 @@ export function WelcomePage() {
             {requiredLeft.length ? t('welcome.requiredLeft', { count: requiredLeft.length }) : t('welcome.requiredDone')}
           </span>
         </div>
-        <div className="setup-bar" aria-hidden="true">
-          <span style={{ inlineSize: `${(done / o.steps.length) * 100}%` }} />
-        </div>
+        {/* One segment per step; a step just finished fills in with a sweep. */}
+        <ol className="setup-segments" aria-hidden="true">
+          {o.steps.map((s) => (
+            <li key={s.key} className={`${s.done ? 'is-done' : ''}${justDone.has(s.key) ? ' is-new' : ''}${s.required ? ' is-needed' : ''}`} />
+          ))}
+        </ol>
       </div>
 
       {!isOwner && <p className="callout">{t('welcome.ownerOnly')}</p>}
@@ -85,7 +92,7 @@ export function WelcomePage() {
           <ol>
             {o.steps.map((s) => (
               <li key={s.key}>
-                <button type="button" className={`setup-step${step === s.key ? ' is-on' : ''}${s.done ? ' is-done' : ''}`} aria-current={step === s.key ? 'step' : undefined} onClick={() => setStep(s.key)}>
+                <button type="button" className={`setup-step${step === s.key ? ' is-on' : ''}${s.done ? ' is-done' : ''}${justDone.has(s.key) ? ' is-new' : ''}`} aria-current={step === s.key ? 'step' : undefined} onClick={() => setStep(s.key)}>
                   <span className="setup-step-icon" aria-hidden="true">
                     {s.done ? <CheckCircle2 size={20} /> : ICONS[s.key]}
                   </span>
@@ -103,7 +110,8 @@ export function WelcomePage() {
           {step === 'done' ? (
             <AllSet o={o} />
           ) : (
-            <>
+            // A new key for each step, so its content slides in when the step changes.
+            <div className="setup-stage" key={step}>
               <h2 className="panel-title" id="setup-title">
                 {ICONS[step]}
                 {t(`welcome.step.${step}` as MessageKey)}
@@ -115,12 +123,31 @@ export function WelcomePage() {
               {step === 'authorization' && <AuthorizationStep o={o} canEdit={isOwner} onDone={() => next('authorization')} />}
               {step === 'rules' && <RulesStep onDone={() => next('rules')} />}
               {step === 'debtors' && <DebtorsStep onDone={() => next('debtors')} />}
-            </>
+            </div>
           )}
         </section>
       </div>
     </div>
   );
+}
+
+/** The steps that became done since the last answer, for a short moment, so they can be marked. */
+function useJustDone(o: Onboarding | undefined): Set<OnboardingStep> {
+  const before = useRef<Set<OnboardingStep> | null>(null);
+  const [fresh, setFresh] = useState<Set<OnboardingStep>>(new Set());
+  const now = useMemo(() => new Set(o?.steps.filter((s) => s.done).map((s) => s.key) ?? []), [o]);
+  useEffect(() => {
+    if (!o) return;
+    const prev = before.current;
+    before.current = now;
+    if (!prev) return; // the first load marks nothing
+    const added = new Set([...now].filter((k) => !prev.has(k)));
+    if (!added.size) return;
+    setFresh(added);
+    const timer = setTimeout(() => setFresh(new Set()), 1400);
+    return () => clearTimeout(timer);
+  }, [o, now]);
+  return fresh;
 }
 
 // ------------------------------------------------------------------ files
@@ -208,10 +235,11 @@ function CompanyStep({ o, canEdit, onDone }: { o: Onboarding; canEdit: boolean; 
   const save = useSaveOnboarding();
   const c = o.company;
   const [f, setF] = useState({ trade_name: c.trade_name ?? '', unified_number: c.unified_number ?? '', sector: c.sector, activity: c.activity ?? '', vat_number: c.vat_number ?? '' });
-  const [errors, setErrors] = useState<{ unified?: string; cr?: string; form?: string }>({});
+  const [errors, setErrors] = useState<{ unified?: string; vat?: string; cr?: string; form?: string }>({});
   const submit = () => {
     const next: typeof errors = {};
     if (!/^7\d{9}$/.test(f.unified_number)) next.unified = t('welcome.unifiedBad');
+    if (f.vat_number && !vatOk(f.vat_number)) next.vat = t('welcome.vatBad');
     if (!c.cr_file) next.cr = t('welcome.crNeeded');
     setErrors(next);
     if (Object.keys(next).length) return;
@@ -241,7 +269,7 @@ function CompanyStep({ o, canEdit, onDone }: { o: Onboarding; canEdit: boolean; 
             </select>
           )}
         </Field>
-        <Field label={t('welcome.vat')} hint={t('welcome.optional')}>
+        <Field label={t('welcome.vat')} hint={t('welcome.optional')} error={errors.vat}>
           {(p) => <input {...p} inputMode="numeric" dir="ltr" value={f.vat_number} onChange={(e) => setF({ ...f, vat_number: e.target.value.replace(/\D/g, '').slice(0, 15) })} />}
         </Field>
       </div>
@@ -266,6 +294,7 @@ function OwnerStep({ o, canEdit, onDone }: { o: Onboarding; canEdit: boolean; on
     if (!w.id_last4 || f.id_number) {
       const first = f.id_type === 'national_id' ? '1' : '2';
       if (!new RegExp(`^${first}\\d{9}$`).test(f.id_number)) return setErrors({ id: t(f.id_type === 'national_id' ? 'welcome.idBadNational' : 'welcome.idBadIqama') });
+      if (!saudiIdOk(f.id_number)) return setErrors({ id: t('welcome.idCheck') });
     }
     setErrors({});
     save.mutate(
@@ -314,7 +343,9 @@ function BankStep({ o, canEdit, onDone }: { o: Onboarding; canEdit: boolean; onD
   const submit = () => {
     const next: typeof errors = {};
     if (!f.bank_name.trim()) next.bank = t('common.required');
-    if (!/^SA\d{22}$/.test(f.iban.replace(/\s/g, '').toUpperCase())) next.iban = t('welcome.ibanBad');
+    const iban = f.iban.replace(/\s/g, '').toUpperCase();
+    if (!/^SA\d{22}$/.test(iban)) next.iban = t('welcome.ibanBad');
+    else if (!ibanOk(iban)) next.iban = t('welcome.ibanCheck');
     setErrors(next);
     if (Object.keys(next).length) return;
     save.mutate({ step: 'bank', ...f }, { onSuccess: onDone, onError: (err) => setErrors({ form: errorText(err, t) }) });
@@ -401,8 +432,11 @@ function AllSet({ o }: { o: Onboarding }) {
   const { t } = useI18n();
   const left = o.steps.filter((s) => !s.done);
   return (
-    <div className="setup-done">
-      <CheckCircle2 size={40} aria-hidden="true" />
+    <div className={`setup-done${left.some((s) => s.required) ? '' : ' is-ready'}`}>
+      <svg className="done-mark" viewBox="0 0 52 52" aria-hidden="true">
+        <circle cx="26" cy="26" r="23" pathLength={100} />
+        <path d="M15 27 l7.5 7.5 L37 19" pathLength={100} />
+      </svg>
       <h2 className="panel-title" id="setup-title">{t(left.some((s) => s.required) ? 'welcome.almost' : 'welcome.ready')}</h2>
       <p>{t(left.some((s) => s.required) ? 'welcome.almostText' : 'welcome.readyText')}</p>
       {left.length > 0 && (

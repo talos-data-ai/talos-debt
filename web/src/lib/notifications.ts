@@ -44,6 +44,7 @@ export function notificationText(n: Notification, t: I18n['t']): string {
     case 'najiz_filed':
     case 'najiz_stopped':
     case 'najiz_status':
+    case 'setup_done':
       return t(`note.${event}`, vars);
     default:
       return n.title;

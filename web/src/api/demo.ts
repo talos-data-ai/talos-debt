@@ -207,6 +207,7 @@ const notifications: Notification[] = [
 /** A company that has just signed up: the company step is half done. */
 const setup = {
   data: {
+    status: 'onboarding',
     plan: 'legal',
     period: 'monthly',
     trial_ends_at: new Date(NOW + 14 * 86_400_000).toISOString(),
@@ -237,6 +238,8 @@ function setupNow(): Onboarding {
     debtors: d.debtors > 0 || setup.debtorsLater,
   };
   d.steps = (Object.keys(done) as OnboardingStep[]).map((key) => ({ key, done: done[key], required: REQUIRED.includes(key) }));
+  // Once the needed steps are done the company is active, as in the API.
+  if (d.status === 'onboarding' && d.steps.every((s) => !s.required || s.done)) d.status = 'active';
   return d;
 }
 const fileLite = (file: File): FileLite => ({ name: file.name, size_bytes: String(file.size), uploaded_at: new Date().toISOString() });
@@ -483,11 +486,11 @@ export const demoSource: DataSource = {
             user: { id: 'u1', fullName: setup.signedUpAs, role: 'owner' as const },
             client: {
               id: CLIENT, legal_name: setup.data.company.legal_name, trade_name: null, sector: setup.data.company.sector, plan: setup.data.plan,
-              status: setupNow().steps.every((x) => !x.required || x.done) ? 'active' : 'onboarding',
+              status: setupNow().status,
             },
           }
         : { user: { id: 'u1', fullName: 'Noura Al-Qahtani', role: 'staff' as const },
-            client: { id: CLIENT, legal_name: 'Al Nokhba Delivery Co.', trade_name: 'Al Nokhba Delivery', sector: 'logistics', plan: 'growth', status: 'active' } },
+            client: { id: CLIENT, legal_name: 'Al Nokhba Delivery Co.', trade_name: 'Al Nokhba Delivery', sector: 'logistics', plan: 'legal', status: 'active' } },
     ),
   totals: () => {
     const open = debts.filter((d) => !['paid', 'closed', 'written_off'].includes(d.status));

@@ -397,7 +397,7 @@ function homeBody(c: Copy, cfg: SiteConfig): string {
         <div class="chat-body">
           <p class="bubble from-them">${iso(ch.reminder)}<time>10:02</time></p>
           <p class="bubble from-me">${iso(ch.question)}<time>10:15</time></p>
-          <p class="bubble from-them">${iso(ch.answer)}<time>10:15</time></p>
+          <div class="slot"><span class="bubble from-them typing" aria-hidden="true"><i></i><i></i><i></i></span><p class="bubble from-them">${iso(ch.answer)}<time>10:15</time></p></div>
           <div class="bubble from-me"><span class="file">${icons.file}<bdi>${esc(ch.receiptFile)}</bdi></span>${esc(ch.receipt)}<time>10:31</time></div>
           <span class="to-approve">${icons.check}${esc(ch.toApprove)}</span>
         </div>

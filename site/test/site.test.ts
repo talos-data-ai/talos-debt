@@ -12,7 +12,7 @@ import { chromium, type Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { build, formatAmount, legalDate, llmsTxt, loadConfig, parsePricing, planFeatures, renderPage, sitemap, yearlySaving, type SiteConfig } from '../src/build.js';
 import { ar, en, type Copy } from '../src/content.js';
-import { LEGAL_REVIEWED, legalCopies } from '../src/legal.js';
+import { LEGAL_REVIEWED, TERMS_VERSION, legalCopies } from '../src/legal.js';
 
 const dist = fileURLToPath(new URL('../dist', import.meta.url));
 const page = (path: string) => readFileSync(join(dist, path), 'utf8');
@@ -97,6 +97,11 @@ describe('terms of use and privacy policy', () => {
       expect(s, 'Arabic text uses « » for quotes').not.toMatch(/"/);
       for (const latin of s.replace(/{\w+}/g, '').match(/[A-Za-z][A-Za-z0-9.\- ]*[A-Za-z0-9]/g) ?? []) expect(latin.trim(), s).toMatch(/^$/);
     }
+  });
+
+  it('the API records the same terms version people accept at sign-up', () => {
+    const api = readFileSync(fileURLToPath(new URL('../../api/src/routes/onboarding.ts', import.meta.url)), 'utf8');
+    expect(api).toContain(`export const TERMS_VERSION = '${TERMS_VERSION}';`);
   });
 
   it('dates are written in full with Western digits', () => {

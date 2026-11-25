@@ -102,6 +102,7 @@ const KNOWN_ERRORS = [
   'no_active_phone', 'no_template', 'debt_not_active', 'debtor_not_contactable', 'not_configured',
   'email_taken', 'own_account', 'debtor_exists', 'send_failed', 'too_large', 'unsupported_type',
   'najiz_busy', 'najiz_check_first', 'company_exists', 'nothing_to_check', 'najiz_details_missing', 'already_approved', 'note_in_use', 'number_in_use', 'nothing_owed', 'not_approved', 'no_instrument',
+  'setup_not_finished', 'account_not_active', 'no_authorization', 'payment_needed', 'trial_ended',
 ] as const;
 
 /**

@@ -1463,3 +1463,79 @@ bdi {
     position: static;
   }
 }
+
+/* The hero conversation plays once, in the order it happens: the reminder,
+   the debtor's question, Talos typing and answering, the receipt, and the
+   receipt going to the team. Without motion it is simply shown. */
+.slot {
+  display: grid;
+}
+.slot > * {
+  grid-area: 1 / 1;
+}
+.typing {
+  display: inline-flex;
+  align-self: start;
+  gap: 4px;
+  padding: 12px 14px;
+  opacity: 0;
+}
+.typing i {
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 50%;
+  background: #8696a0;
+}
+.to-approve .icon path {
+  stroke-dasharray: 24;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chat-body > .bubble,
+  .chat-body > .slot > p,
+  .to-approve {
+    animation: chat-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .chat-body > .bubble:nth-child(1) { animation-delay: 0.4s; }
+  .chat-body > .bubble:nth-child(2) { animation-delay: 1.5s; }
+  .chat-body > .slot > p { animation-delay: 3.6s; }
+  .chat-body > .bubble:nth-child(4) { animation-delay: 4.8s; }
+  .to-approve { animation-delay: 5.7s; }
+  .from-them { transform-origin: left bottom; }
+  .from-me { transform-origin: right bottom; }
+  [dir='rtl'] .from-them { transform-origin: right bottom; }
+  [dir='rtl'] .from-me { transform-origin: left bottom; }
+  .typing {
+    animation: typing-show 1.4s ease 2.2s both;
+  }
+  .typing i {
+    animation: typing-dot 0.9s ease-in-out infinite;
+  }
+  .typing i:nth-child(2) { animation-delay: 0.15s; }
+  .typing i:nth-child(3) { animation-delay: 0.3s; }
+  .to-approve .icon path {
+    stroke-dashoffset: 24;
+    animation: draw 0.45s ease-out 6.1s forwards;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .typing {
+    display: none;
+  }
+}
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+}
+@keyframes typing-show {
+  0%, 100% { opacity: 0; }
+  12%, 88% { opacity: 1; }
+}
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}

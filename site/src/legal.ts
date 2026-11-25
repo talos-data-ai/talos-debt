@@ -91,7 +91,7 @@ const enTerms: LegalPage = {
             'Your subscription renews on its own at the end of each period, by charging the card you added, until you cancel it. We send an invoice for every payment.',
             'You may change your plan at any time. A higher plan starts at once; a lower plan starts at the next period.',
             'You may cancel at any time from your account. The cancellation takes effect at the end of the period you have paid for. Amounts already paid are not refunded, except where the law requires it.',
-            'If a payment fails, we tell you and try again. If it is still not paid 7 days later, Talos stops sending messages and filing until it is paid.',
+            'If a payment fails, Talos stops sending messages to your debtors and stops filing on Najiz at once, and tells the owner. Everything starts again as soon as the payment goes through. Your data stays in your account.',
             'We may change our prices. We tell you at least 30 days before a new price applies to you, and it applies from your next period.',
           ],
         },
@@ -229,7 +229,7 @@ const enTerms: LegalPage = {
       title: '13. Pausing and closing an account',
       body: [
         'You may close your account at any time. Talos may pause or close an account that breaks these terms or the law, or that puts debtors or other clients at risk. When we can, we tell you first and give you time to fix the problem.',
-        'Before your account is closed you may export your data. After it is closed, your data is deleted as described in our privacy policy, including all your Najiz data.',
+        'Before your account is closed you may export your data. After it is closed, your data is deleted as described in our privacy policy, including all your Najiz data. Talos keeps only a short record of your company, with no debtor data, as the privacy policy explains.',
       ],
     },
     {
@@ -243,7 +243,7 @@ const enTerms: LegalPage = {
       id: 'law',
       title: '15. Law and disputes',
       body: [
-        'These terms follow the laws of the Kingdom of Saudi Arabia. If a disagreement cannot be settled between us within 30 days, it is decided by the competent courts in Jeddah. If the Arabic and English texts differ, the Arabic text applies.',
+        'These terms follow the laws of the Kingdom of Saudi Arabia. If a disagreement cannot be settled between us within 30 days, it is decided by the competent courts in the Kingdom of Saudi Arabia. If the Arabic and English texts differ, the Arabic text applies.',
       ],
     },
     {
@@ -363,7 +363,8 @@ const enPrivacy: LegalPage = {
       body: [
         {
           list: [
-            'Client and debtor data: while the client’s account is open. When an account is closed, we delete its data within 30 days, unless the law requires us to keep something longer, such as tax invoices.',
+            'Client and debtor data: while the client’s account is open. When an account is closed, we delete its data within 30 days, including all its debtors’ data and all its Najiz data.',
+            'After that we keep only a short record of the client company for our own reference: its name, commercial registration, the plans it used and when, its invoices and payments, and when it accepted our terms and signed the authorization letter. We keep invoices as long as tax law requires, and the rest for up to 5 years, in case of a question or a dispute. This record holds no debtor data.',
             'Najiz sign-in data: only while the sign-in lasts. The Nafath number is kept only while it is shown. Request numbers and status history are deleted with the client’s account.',
             'Contact form messages: in our inbox for as long as we need to reply and follow up, and no longer than 2 years.',
             'A client may also ask us to delete one debtor’s data at any time, unless the law requires us to keep it.',
@@ -472,7 +473,7 @@ const arTerms: LegalPage = {
             'يتجدد اشتراكك تلقائياً في نهاية كل مدة بالخصم من البطاقة التي أضفتها، حتى تلغيه. ونرسل فاتورة عن كل دفعة.',
             'يمكنك تغيير باقتك في أي وقت. الباقة الأعلى تبدأ فوراً، والباقة الأدنى تبدأ من المدة التالية.',
             'يمكنك الإلغاء في أي وقت من حسابك، ويسري الإلغاء في نهاية المدة التي دفعت عنها. ولا تُسترد المبالغ المدفوعة إلا إذا اقتضى النظام ذلك.',
-            'إذا تعذّر الدفع، نخبرك ونحاول مرة أخرى. وإذا بقي غير مدفوع بعد 7 أيام، تتوقف تالوس عن المراسلة والتقديم حتى يُدفع.',
+            'إذا تعذّر الدفع، تتوقف تالوس فوراً عن مراسلة مدينيك وعن التقديم في ناجز، وتُخبر المالك. ويعود كل شيء للعمل بمجرد إتمام الدفع. وتبقى بياناتك في حسابك.',
             'قد نغيّر أسعارنا. ونخبرك قبل 30 يوماً على الأقل من تطبيق السعر الجديد عليك، ويُطبق من مدتك التالية.',
           ],
         },
@@ -610,7 +611,7 @@ const arTerms: LegalPage = {
       title: '13. إيقاف الحساب وإغلاقه',
       body: [
         'يمكنك إغلاق حسابك في أي وقت. ويحق لتالوس إيقاف أو إغلاق الحساب الذي يخالف هذه الشروط أو النظام، أو يعرّض المدينين أو العملاء الآخرين للخطر. ونخبرك أولاً متى أمكن، ونمنحك وقتاً لمعالجة المشكلة.',
-        'يمكنك تصدير بياناتك قبل إغلاق حسابك. وبعد إغلاقه تُحذف بياناتك كما توضح سياسة الخصوصية، بما فيها كل بياناتك في ناجز.',
+        'يمكنك تصدير بياناتك قبل إغلاق حسابك. وبعد إغلاقه تُحذف بياناتك كما توضح سياسة الخصوصية، بما فيها كل بياناتك في ناجز. ولا تحتفظ تالوس إلا بسجل مختصر عن شركتك دون أي بيانات عن المدينين، كما توضح سياسة الخصوصية.',
       ],
     },
     {
@@ -624,7 +625,7 @@ const arTerms: LegalPage = {
       id: 'law',
       title: '15. النظام والنزاعات',
       body: [
-        'تخضع هذه الشروط لأنظمة المملكة العربية السعودية. وإذا لم يُحل أي خلاف بيننا خلال 30 يوماً، تفصل فيه المحاكم المختصة في جدة. وعند اختلاف النصين العربي والإنجليزي، يُعمل بالنص العربي.',
+        'تخضع هذه الشروط لأنظمة المملكة العربية السعودية. وإذا لم يُحل أي خلاف بيننا خلال 30 يوماً، تفصل فيه المحاكم المختصة في المملكة العربية السعودية. وعند اختلاف النصين العربي والإنجليزي، يُعمل بالنص العربي.',
       ],
     },
     {
@@ -744,7 +745,8 @@ const arPrivacy: LegalPage = {
       body: [
         {
           list: [
-            'بيانات العميل ومدينيه: ما دام حساب العميل مفتوحاً. وعند إغلاق الحساب نحذف بياناته خلال 30 يوماً، ما لم يُلزمنا النظام بالاحتفاظ بشيء مدة أطول، مثل الفواتير الضريبية.',
+            'بيانات العميل ومدينيه: ما دام حساب العميل مفتوحاً. وعند إغلاق الحساب نحذف بياناته خلال 30 يوماً، بما فيها كل بيانات مدينيه وكل بياناته في ناجز.',
+            'وبعد ذلك نحتفظ فقط بسجل مختصر عن الشركة العميلة للرجوع إليه: اسمها وسجلها التجاري والباقات التي استخدمتها ومدتها وفواتيرها ومدفوعاتها، ووقت موافقتها على شروطنا وتوقيعها خطاب التفويض. ونحتفظ بالفواتير المدة التي يقتضيها النظام الضريبي، وبالباقي مدة لا تزيد على 5 سنوات، تحسباً لأي استفسار أو نزاع. ولا يتضمن هذا السجل أي بيانات عن المدينين.',
             'بيانات الدخول إلى ناجز: طوال مدة الدخول فقط. ويُحفظ رقم نفاذ فقط طوال مدة عرضه. وتُحذف أرقام الطلبات وسجل حالاتها مع حساب العميل.',
             'رسائل نموذج التواصل: في بريدنا ما دمنا نحتاجها للرد والمتابعة، ولمدة لا تزيد على سنتين.',
             'ويمكن للعميل أيضاً أن يطلب منا حذف بيانات أي مدين في أي وقت، ما لم يُلزمنا النظام بالاحتفاظ بها.',

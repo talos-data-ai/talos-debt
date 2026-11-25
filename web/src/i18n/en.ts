@@ -364,6 +364,7 @@ export const en = {
   'note.najiz_filed': 'Filed on Najiz for {name} ({ref}): request {number}',
   'note.najiz_stopped': 'A Najiz sign-in stopped before it finished. Open the Legal page to see what was done.',
   'note.najiz_status': 'Najiz request {number} for {name} is now: {status}',
+  'note.setup_done': 'Setup is finished. Talos can now message your debtors.',
   'note.maybe_not_sent': 'Reminder for {ref} may not have been sent. Check before sending again.',
 
   'settings.title': 'Settings',
@@ -739,7 +740,6 @@ export const en = {
   'signup.period': 'Billing',
   'signup.monthly': 'Monthly',
   'signup.yearly': 'Yearly',
-  'signup.planHint': 'Every plan starts at 250 debtors. You can change it during the trial.',
   'signup.trial': '14 days free',
   'signup.noSetup': 'No setup fee',
   'signup.submit': 'Create my account',
@@ -754,6 +754,7 @@ export const en = {
   'signup.chooseLead': 'Choose one plan for your trial. Each plan has everything in the plan before it, and more. You can change plans during the trial.',
   'signup.stepOf': 'Step {n} of 2',
   'signup.selected': 'Selected',
+  'signup.fromDebtors': 'From 250 debtors',
   'signup.choose': 'Choose',
   'signup.included': 'What is included',
   'signup.newHere': 'New in this plan',
@@ -846,6 +847,9 @@ export const en = {
   'welcome.iban': 'IBAN',
   'welcome.ibanHint': 'SA followed by 22 digits',
   'welcome.ibanBad': 'A Saudi IBAN is SA followed by 22 digits',
+  'welcome.ibanCheck': 'This IBAN is not valid. Check that no digit is mistyped.',
+  'welcome.idCheck': 'This ID number is not valid. Check that no digit is mistyped.',
+  'welcome.vatBad': 'A VAT number has 15 digits and starts and ends with 3',
   'welcome.auth1': 'Download the letter and fill in your company’s details, as on the commercial registration.',
   'welcome.auth2': 'The owner signs it and stamps it with the company stamp.',
   'welcome.auth3': 'Upload the signed letter as a PDF.',
@@ -865,6 +869,11 @@ export const en = {
   'welcome.bannerCta': 'Continue setup',
   'nav.welcome': 'Setup',
   'error.company_exists': 'This company already has an account. Ask its owner to invite you.',
+  'error.setup_not_finished': 'Finish setting up your company first: the company, the owner and the signed authorization letter.',
+  'error.account_not_active': 'This account is not active.',
+  'error.no_authorization': 'Upload the signed authorization letter first.',
+  'error.payment_needed': 'A payment is needed. Talos stopped messaging until it goes through.',
+  'error.trial_ended': 'Your free trial has ended. Add a card to keep going.',
 } as const;
 
 export type MessageKey = keyof typeof en;

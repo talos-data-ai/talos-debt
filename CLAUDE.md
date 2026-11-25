@@ -51,6 +51,7 @@ The migrations, in order. Each one is applied once and never edited after it has
 | `0007_notification_details.sql` | `app.notifications.data` (jsonb): the facts a notification is built from, so the dashboard shows it in Arabic or English | Sal, **waiting for Karam's review** |
 | `0008_najiz_filing_data.sql` | What Najiz asks for: owner ID and unified number on `clients`, debtor name in parts, note place and due type on `instruments`, Najiz details on `legal_cases` (one open request per note), `legal_case_events` (status history, add only), document types `partners_decision` and `najiz_receipt` | Sal, **waiting for Karam's review** |
 | `0009_najiz_runs.sql` | `najiz_runs` (one Najiz sign-in: stage, the Nafath number only while it is shown, why it stopped) and `najiz_run_items` (each note filed in it, step by step, with its request number); one running sign-in per client | Sal, **waiting for Karam's review** |
+| `0010_signup_onboarding.sql` | Sign-up and onboarding: the three plans, billing period and state (`trial`, `active`, `unpaid`), the trial end, the terms accepted, the founding offer; `app.setup_missing()`, `app.client_messaging_block()` and `auth.sign_up()` | Sal, **waiting for Karam's review** |
 
 Other files in `/db`: `db/roles/login_roles.sql` and `db/roles/check_login_roles.sql` (login roles for development and production, see "Setting up a new database"), written by Sal and reviewed by Karam.
 
@@ -96,6 +97,14 @@ Other files in `/db`: `db/roles/login_roles.sql` and `db/roles/check_login_roles
 - `AI_FREE_TIER=true` is for fake data only and is refused in production.
 - The webhook (`/webhooks/whatsapp`) checks Meta's signature with `WHATSAPP_APP_SECRET` and uses the worker connection only to find the sender and store raw events; everything else runs inside `withTenant` with `actor_type = 'ai'`.
 - Each test file starts from a freshly reset `talos_test` database (`api/test/setup.ts`).
+
+### Sign-up and onboarding (7.5)
+
+- **Sign-up** (`POST /api/signup`, `api/src/routes/onboarding.ts`): open to everyone, so it needs `x-talos: 1` and is limited per address. It goes through `auth.sign_up` (0010), the only door that creates a company, its owner and the owner's password before anyone is signed in, then signs the person in. A company or an email that already has an account is refused (`company_exists`, `email_taken`). The trial is `TRIAL_DAYS` (14); the first `FOUNDING_LIMIT` companies (10) are founding members. The terms version accepted is recorded (`TERMS_VERSION`, the same as in `site/src/legal.ts`, tested).
+- **Setup** (`GET /api/onboarding`, `PATCH /api/onboarding/:step`, `POST /api/onboarding/files`): owners and admins save each step; everyone can read. Company papers go through `FileStorage` like every file, PDF only and at most 0.95 MB (Najiz), the bank letter may be a photo. The owner's ID number and the IBAN pass their check digits (in the browser too, `web/src/lib/ids.ts`). Only the last four digits of the ID ever leave the API, and audit lines never hold it.
+- **Nothing is sent before setup is done.** The needed steps are the company with its commercial registration, the owner, and the signed authorization letter (`app.setup_missing`). Once they are done the company becomes `active` and gets a `setup_done` notification. `app.client_messaging_block` says why a company may not message now (`setup_not_finished`, `account_not_active`, `no_authorization`, `payment_needed`, `trial_ended`): `sendReminder` checks it first, and the scheduler neither plans nor claims reminders for such a company. A failed payment or a trial that ended stops messages at once (Sal, 25 November 2026); payments come with 7.6.
+- **The authorization letter** (`web/src/assets/authorization-letter.docx`, Arabic and English) is filled in by hand for now; it is a draft for the lawyer, like the terms and the privacy policy.
+- **Motion** (Sal asked for a sleek, lively feel): one moment per screen, tied to what it shows. On the plans, a line draws the path of a debt (WhatsApp, the legal file, Najiz) to the chosen plan and moves when another is chosen; in setup, a step just finished fills its segment and its content slides in; the last panel draws its check; on the website, the hero conversation plays once. Everything respects reduced motion.
 
 ### Scheduler (Phase 2)
 
@@ -210,7 +219,7 @@ Owner: **S** = Sal (API, worker, web, AI), **K** = Karam (database, infrastructu
 - Nothing is hosted yet. There is no production database and no email sending set up (SMTP), so password emails are only written to a folder in development.
 - The database setup is ready for a managed database (no superuser needed): the migrations, then one script. It was tested on a simulated one; see "Setting up a new database".
 - **Working on now: Phase 5** (legal escalation and Najiz filing). The rest of Phase 1 waits for Meta business verification (0.7) and comes after Phase 5. Sal's screen recordings of the Najiz steps are written up in `docs/najiz-filing.md`. Its data is in migration `0008_najiz_filing_data.sql`, waiting for Karam's review. Built: the Legal page, the case page with approval (5.2), status by hand (5.3) and the note template (5.0b), designs approved by Sal. Built too: the filing pack PDF (5.1) and filing from Talos (5.4, migration `0009_najiz_runs.sql` waiting for Karam's review), and status checks on Najiz (5.5), both tested against a fake Najiz only: the first real run needs Sal watching (5.4b). Services after filing (5.6) are a later feature (Sal, 11 November 2026). Phase 5 is done apart from 5.4b and 5.6; next is the rest of Phase 1 once Meta verifies the business.
-- **Phase 7 started (25 November 2026):** the website at `debt.talosksa.com` with search engine and AI assistant pages, the pricing page and the contact form (7.1 to 7.4) is in `/site`. The design of sign-up and onboarding (7.5) is built on sample data for Sal's approval (`web/src/pages/SignUp.tsx`, `Welcome.tsx`): first the plan (one only, each with its full list of features), then the account and the terms; no card until the trial ends (Sal). The terms of use, the privacy policy (on the website) and the authorization letter (`web/src/assets/authorization-letter.docx`, filled in by hand for now) are drafts waiting for the lawyer; its back end comes next, then payments and billing (7.6, 7.7), and e-invoicing (7.8).
+- **Phase 7 started (25 November 2026):** the website at `debt.talosksa.com` with search engine and AI assistant pages, the pricing page and the contact form (7.1 to 7.4) is in `/site`. Sign-up and onboarding (7.5) are built and tested end to end: first the plan (one only, each with its full list of features), then the account and the terms, then setup step by step; no card until the trial ends (Sal). Migration `0010_signup_onboarding.sql` waits for Karam's review. The terms of use, the privacy policy (on the website) and the authorization letter are drafts waiting for the lawyer. Next: payments and billing (7.6, 7.7), and e-invoicing (7.8).
 - Planned but not started: the usability check with a pilot client (4.0c). The dashboard already has a Legal page listing debts ready for legal, where Phase 5 adds the filing.
 - For Karam: the document upload (`api/src/storage/documents.ts` `DOC_TYPES` and `CLIENT_DOC_TYPES` in `routes/documents.ts`) does not take the new types `partners_decision` and `najiz_receipt` from migration 0008 yet. Partners' decisions are optional on Najiz, so this blocks nothing today; the receipt is needed for 5.4.
 - For Karam: the Excel import cannot read a workbook whose cell comments were saved by some tools (openpyxl, found by the end-to-end run); files saved by Excel are fine. `exceljs` fails on them in `api/src/import/parse.ts`.
@@ -287,7 +296,7 @@ Run these in order, as the admin account the provider gives you (it does not nee
 Design comes first: every page is designed and approved by Sal before it is built (4.0). The bar is a product that looks and feels premium, is easy for busy staff, and works equally well in Arabic (right to left) and English, on phone and desktop.
 
 - [x] ~~4.0a Design system: brand colours, Arabic and English fonts, spacing, components (tables, forms, status badges, charts), light and dark, right to left from the start (S)~~ (`web/src/styles/`, `web/src/components/`)
-- [ ] 4.0b Designs for every page (dashboard, debtor list, debtor page, approvals, notifications, settings, import, onboarding) approved before building; clickable prototype for the main flows (S). Done for every dashboard page (approved by Sal; prototype: `npm run build:prototype`); onboarding comes with 7.5
+- [x] ~~4.0b Designs for every page (dashboard, debtor list, debtor page, approvals, notifications, settings, import, onboarding) approved before building; clickable prototype for the main flows (S)~~ (approved by Sal; prototype: `npm run build:prototype`)
 - [ ] 4.0c Usability check with two or three people from a pilot client before launch (S)
 
 - [x] ~~4.1 React app shell, Arabic (right to left) and English (S)~~ (`web/`)
@@ -298,7 +307,7 @@ Design comes first: every page is designed and approved by Sal before it is buil
 - [x] ~~4.6 Approval queue: approve or reject payments, resolve disputes, approve waiting reminders (S)~~ (`web/src/pages/Approvals.tsx`, `/api/disputes/:id/resolve`)
 - [x] ~~4.7 Notifications: replies, payments to approve, disputes, legal-ready debts, in the reader's language (S, migration 0007)~~ (`web/src/pages/Notifications.tsx`)
 - [x] ~~4.8 Settings: follow-up rules, working hours and days, templates, team and roles (S)~~ (`web/src/pages/Settings.tsx`, `/api/settings/rules`, `/api/users`)
-- [ ] 4.9 Client sign-up and onboarding: see 7.5 (S)
+- [x] ~~4.9 Client sign-up and onboarding: see 7.5 (S)~~
 - [ ] 4.10 Serve the dashboard and the API from one address in production, so the login cookie stays first-party (K, with 6.4)
 
 ### Phase 5: Legal escalation
@@ -343,7 +352,8 @@ Prices are kept out of this public repository: they are loaded from settings or 
 - [x] ~~7.3 AI assistants: plain factual pages AI assistants can read and quote, an `llms.txt` file, answers to common questions written as full sentences, no key content hidden behind scripts (S)~~ (`site/dist/llms.txt`, questions in `site/src/content.ts`)
 - [ ] 7.1b Host the website (static files) at `debt.talosksa.com` with its settings and the prices file; the API's `SITE_URL` and `CONTACT_INBOX`; a picture for link previews (K, with 6.4)
 - [x] ~~7.4 Pricing and subscription page: plans by number of debtors, monthly or yearly, free trial (S)~~ (`site/`, `/pricing/`, prices from `PRICING_FILE`)
-- [ ] 7.5 Self sign-up and onboarding: company details, commercial registration and establishment contract upload, owner details, IBAN, signed authorization, follow-up rules, first Excel import, with a progress bar (S)
+- [x] ~~7.5 Self sign-up and onboarding: company details, commercial registration and establishment contract upload, owner details, IBAN, signed authorization, follow-up rules, first Excel import, with a progress bar (S, migration 0010 for K to review)~~ (`web/src/pages/SignUp.tsx`, `Welcome.tsx`, `api/src/routes/onboarding.ts`)
+- [ ] 7.5b The lawyer reviews the terms of use, the privacy policy and the authorization letter; then set `LEGAL_REVIEWED` and fill the letter with the company's details automatically (S)
 - [ ] 7.6 Subscription payments: payment gateway account (mada, Visa and Mastercard, Apple Pay), recurring billing, trial ending, failed payment emails (S, gateway account by K)
 - [ ] 7.7 Billing in the dashboard: current plan, change plan, card, invoices; plan limits enforced (number of active debtors) (S)
 - [ ] 7.8 Talos's own invoices to clients meet ZATCA e-invoicing rules (S+K)

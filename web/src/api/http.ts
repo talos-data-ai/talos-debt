@@ -37,7 +37,9 @@ async function request<T>(method: string, url: string, body?: unknown, opts: { a
   if (!res.ok) {
     if (res.status === 401 && opts.auth !== false) onSessionEnded();
     const fields = Array.isArray(data.errors) ? (data.errors as { field: string; message: string }[]) : [];
-    throw new ApiError(res.status, String(data.error ?? 'error'), String(data.message ?? fields[0]?.message ?? 'Something went wrong'), fields);
+    // A refused form names its first problem in plain words, without the field's code name.
+    const message = data.error === 'bad_request' && fields[0] ? fields[0].message : (data.message ?? fields[0]?.message);
+    throw new ApiError(res.status, String(data.error ?? 'error'), String(message ?? 'Something went wrong'), fields);
   }
   return data as T;
 }

@@ -13,8 +13,8 @@
  * No card is asked for: it is added before the trial ends (7.6).
  */
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, CreditCard, Sparkles } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { ArrowLeft, ArrowRight, Check, CreditCard, FileText, Landmark, MessageCircle, Sparkles } from 'lucide-react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSource } from '../api/hooks';
 import type { BillingPeriod, PlanKey, SignUpInput } from '../api/types';
@@ -62,14 +62,41 @@ export function SignUpPage() {
 
 function PeriodPick({ value, onChange }: { value: BillingPeriod; onChange: (p: BillingPeriod) => void }) {
   const { t } = useI18n();
+  // The dark thumb slides under the chosen label.
   return (
-    <div className="period-pick" role="radiogroup" aria-label={t('signup.period')}>
+    <div className="period-pick" role="radiogroup" aria-label={t('signup.period')} style={{ '--at': value === 'yearly' ? 1 : 0 } as CSSProperties}>
       {(['monthly', 'yearly'] as BillingPeriod[]).map((per) => (
         <label key={per} className={value === per ? 'is-on' : ''}>
           <input type="radio" name="period" value={per} checked={value === per} onChange={() => onChange(per)} />
           {t(`signup.${per}` as MessageKey)}
         </label>
       ))}
+    </div>
+  );
+}
+
+const STAGE_ICONS = [MessageCircle, FileText, Landmark];
+
+/**
+ * The path a debt takes, from WhatsApp follow-up to the legal file to Najiz,
+ * drawn over the three plans. The line runs from the start to the chosen
+ * plan, so it shows how far Talos goes on each one. It draws itself once
+ * when the page opens, and moves when another plan is chosen.
+ */
+function PlanTrack({ plan }: { plan: PlanKey }) {
+  const at = PLANS.indexOf(plan);
+  return (
+    <div className="plan-track" aria-hidden="true" style={{ '--at': at } as CSSProperties}>
+      <span className="plan-track-line" />
+      <span className="plan-track-fill" />
+      {PLANS.map((p, i) => {
+        const Icon = STAGE_ICONS[i]!;
+        return (
+          <span key={p} className={`plan-track-node${i <= at ? ' is-lit' : ''}${p === 'najiz' ? ' is-legal' : ''}`} style={{ '--i': i } as CSSProperties}>
+            <Icon size={16} />
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -107,6 +134,7 @@ function PlanStep({ initial, onNext }: { initial: { plan: PlanKey; period: Billi
             <a className="link" href={sitePage(lang, 'pricing')} target="_blank" rel="noreferrer">{t('signup.seePrices')}</a>
           </div>
 
+          <PlanTrack plan={plan} />
           <div className="plan-cards" role="radiogroup" aria-label={t('signup.plan')}>
             {PLANS.map((p) => {
               const on = plan === p;
@@ -119,7 +147,7 @@ function PlanStep({ initial, onNext }: { initial: { plan: PlanKey; period: Billi
                     <span className={`plan-card-state${on ? ' is-on' : ''}`}>{t(on ? 'signup.selected' : 'signup.choose')}</span>
                   </span>
                   <span className="plan-card-for" id={`plan-${p}-for`}>{t(`plan.${p}.for` as MessageKey)}</span>
-                  <span className="plan-card-debtors">{t('signup.planHint')}</span>
+                  <span className="plan-card-debtors">{t('signup.fromDebtors')}</span>
                   <span className="plan-card-label">{t('signup.included')}</span>
                   <ul className="plan-card-features">
                     {planFeatures(p).map((f) => (

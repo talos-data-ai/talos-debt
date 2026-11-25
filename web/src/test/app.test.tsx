@@ -910,9 +910,13 @@ describe('sign-up and onboarding (7.5)', () => {
     await user.clear(screen.getByLabelText(en('welcome.idNumber')));
     await user.type(screen.getByLabelText(en('welcome.idNumber')), '2000000100');
     await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+    expect(screen.getByText(en('welcome.idCheck'))).toBeInTheDocument(); // a mistyped digit is caught
+    await user.clear(screen.getByLabelText(en('welcome.idNumber')));
+    await user.type(screen.getByLabelText(en('welcome.idNumber')), '2000000105');
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
     expect(await screen.findByRole('heading', { name: en('welcome.step.bank') })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: new RegExp(en('welcome.step.owner')) }));
-    expect(await screen.findByText(en('welcome.idSaved', { last4: '0100' }))).toBeInTheDocument();
+    expect(await screen.findByText(en('welcome.idSaved', { last4: '0105' }))).toBeInTheDocument();
 
     // Authorization: the letter to sign is a Word file to download.
     await user.click(screen.getByRole('button', { name: new RegExp(en('welcome.step.authorization')) }));

@@ -1823,22 +1823,38 @@ input[type='time'] {
   margin-block-end: var(--space-2);
 }
 .period-pick {
-  display: inline-flex;
+  --at: 0;
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
   justify-self: start;
-  gap: 4px;
   padding: 4px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
-  background: var(--panel-sunken);
+  background: var(--panel);
+}
+/* The thumb slides under the chosen label. */
+.period-pick::before {
+  content: '';
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-start: calc(4px + var(--at) * (100% - 8px) / 2);
+  inline-size: calc((100% - 8px) / 2);
+  border-radius: var(--radius-pill);
+  background: var(--navy-900);
+  transition: inset-inline-start 0.32s var(--ease);
 }
 .period-pick label {
   position: relative;
-  padding: 6px 16px;
+  z-index: 1;
+  padding: 6px 18px;
   border-radius: var(--radius-pill);
   font-size: var(--text-sm);
   font-weight: 600;
+  text-align: center;
   color: var(--ink-2);
   cursor: pointer;
+  transition: color 0.2s ease;
 }
 .period-pick input {
   position: absolute;
@@ -1850,7 +1866,6 @@ input[type='time'] {
   outline: 3px solid var(--focus);
 }
 .period-pick .is-on {
-  background: var(--navy-900);
   color: #fff;
 }
 .signup-points {
@@ -2357,4 +2372,228 @@ input[type='time'] {
 .accept {
   display: grid;
   gap: var(--space-1);
+}
+
+/* ------------------------------------------- sign-up: the path of a debt */
+
+.plan-track {
+  --at: 1;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  block-size: 44px;
+  margin-block-end: var(--space-3);
+}
+.plan-track-line,
+.plan-track-fill {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: calc(100% / 6);
+  block-size: 2px;
+  margin-block-start: -1px;
+  border-radius: 2px;
+}
+.plan-track-line {
+  inline-size: calc(100% * 2 / 3);
+  background: repeating-linear-gradient(90deg, var(--line-strong) 0 6px, transparent 6px 12px);
+}
+.plan-track-fill {
+  inline-size: calc(var(--at) * 100% / 3);
+  background: var(--accent);
+  transition: inline-size 0.55s var(--ease);
+  animation: track-draw 0.9s var(--ease) 0.15s backwards;
+}
+@keyframes track-draw {
+  from {
+    inline-size: 0;
+  }
+}
+.plan-track-node {
+  position: relative;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink-3);
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+  transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, transform 0.3s var(--ease);
+}
+.plan-track-node.is-lit {
+  background: var(--action);
+  color: #fff;
+  box-shadow: 0 0 0 5px var(--accent-soft);
+  /* Each node lights as the line reaches it when the page opens. */
+  animation: node-on 0.4s var(--ease) backwards;
+  animation-delay: calc(0.1s + var(--i) * 0.3s);
+}
+.plan-track-node.is-lit.is-legal {
+  background: var(--magenta-600);
+  box-shadow: 0 0 0 5px var(--magenta-100);
+}
+@keyframes node-on {
+  from {
+    background: var(--panel);
+    color: var(--ink-3);
+    box-shadow: inset 0 0 0 1.5px var(--line-strong);
+    transform: scale(0.85);
+  }
+}
+.plan-card {
+  transition: box-shadow 0.25s ease, background 0.25s ease, transform 0.25s var(--ease);
+}
+.plan-card.is-on {
+  transform: translateY(-2px);
+}
+/* The check in the chosen plan draws itself. */
+.plan-card.is-on .plan-radio {
+  animation: radio-on 0.3s var(--ease);
+}
+.plan-card.is-on .plan-radio path {
+  stroke-dasharray: 24;
+  animation: check-draw 0.35s ease-out 0.1s backwards;
+}
+@keyframes radio-on {
+  from {
+    transform: scale(0.6);
+  }
+}
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+}
+@media (max-width: 900px) {
+  .plan-track {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------ setup: progress and motion */
+
+.setup-segments {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.setup-segments li {
+  position: relative;
+  block-size: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+  overflow: hidden;
+}
+/* Needed steps carry a small notch until they are done. */
+.setup-segments li.is-needed::after {
+  content: '';
+  position: absolute;
+  inset-block: 2px;
+  inset-inline-start: 3px;
+  inline-size: 4px;
+  border-radius: 50%;
+  background: var(--amber-500);
+}
+.setup-segments li::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--action);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+:dir(rtl) .setup-segments li::before {
+  transform-origin: right;
+}
+.setup-segments li.is-done::before {
+  transform: scaleX(1);
+}
+.setup-segments li.is-done::after {
+  display: none;
+}
+.setup-segments li.is-new::before {
+  animation: segment-fill 0.6s var(--ease) both;
+}
+@keyframes segment-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* A step just finished: its check settles in. */
+.setup-step.is-new .setup-step-icon {
+  animation: step-done 0.5s var(--ease);
+}
+@keyframes step-done {
+  0% {
+    transform: scale(0.7);
+    box-shadow: 0 0 0 0 var(--accent-soft);
+  }
+  60% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 8px var(--accent-soft);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Each step's content comes in from the reading direction. */
+.setup-stage {
+  animation: stage-in 0.32s var(--ease);
+}
+@keyframes stage-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+:dir(rtl) .setup-stage {
+  animation-name: stage-in-rtl;
+}
+@keyframes stage-in-rtl {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+
+/* The last panel: the check draws itself. */
+.done-mark {
+  inline-size: 64px;
+  block-size: 64px;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.done-mark circle {
+  stroke: var(--accent-soft);
+  stroke-width: 3;
+}
+.done-mark path {
+  stroke: var(--line-strong);
+  stroke-width: 4;
+}
+.setup-done.is-ready .done-mark circle {
+  stroke: var(--action);
+  stroke-dasharray: 100;
+  animation: mark-draw 0.7s var(--ease) 0.1s backwards;
+}
+.setup-done.is-ready .done-mark path {
+  stroke: var(--action);
+  stroke-dasharray: 100;
+  animation: mark-draw 0.45s ease-out 0.7s backwards;
+}
+@keyframes mark-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
 }

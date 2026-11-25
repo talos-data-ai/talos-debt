@@ -463,9 +463,12 @@ export interface FileLite {
 /** Where a new company stands in setting up. Only the last four digits of the owner's ID ever reach the browser. */
 export interface Onboarding {
   steps: { key: OnboardingStep; done: boolean; required: boolean }[];
+  /** onboarding until the needed steps are done, then active. */
+  status: 'onboarding' | 'active' | 'suspended' | 'closed';
   plan: PlanKey;
   period: BillingPeriod;
-  trial_ends_at: string;
+  /** Null once the company pays. */
+  trial_ends_at: string | null;
   company: {
     legal_name: string;
     cr_number: string;
