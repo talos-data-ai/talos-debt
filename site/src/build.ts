@@ -5,6 +5,7 @@
  *
  *   /  and /en/                  home, in Arabic (the default) and English
  *   /pricing/ and /en/pricing/   the three plans
+ *   /terms/ and /privacy/        terms of use and privacy policy (and under /en/)
  *   /thanks/, /sorry/            after the contact form (not listed for search engines)
  *   /llms.txt                    plain facts for AI assistants, in English
  *   /sitemap.xml, /robots.txt
@@ -17,6 +18,9 @@
  *   CONTACT_WHATSAPP  the WhatsApp number, digits only with the country code (9665XXXXXXXX)
  *   CONTACT_PHONE     the phone number as people should read it (+966 5X XXX XXXX)
  *   PRICING_FILE      a JSON file with the prices (see `Pricing`), kept outside the repository
+ *   LEGAL_NAME, LEGAL_CR, LEGAL_ADDRESS, PRIVACY_EMAIL
+ *                     Talos's legal name, commercial registration, address and privacy email,
+ *                     shown on the terms of use and the privacy policy
  */
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -24,6 +28,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copies, type Copy, type Lang } from './content.js';
 import { icons, logo } from './icons.js';
+import { LEGAL_REVIEWED, LEGAL_UPDATED, legalCopies, type Block, type LegalPage } from './legal.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -45,7 +50,12 @@ export interface SiteConfig {
   whatsapp: string | null;
   phone: string | null;
   pricing: Pricing | null;
+  /** Who Talos is, on the legal pages. */
+  legal: { name: string; cr: string; address: string; email: string };
 }
+
+/** The plans in the order of `pricing.tiers`, as the dashboard's sign-up names them (?plan=). */
+export const PLAN_KEYS = ['follow_up', 'legal', 'najiz'] as const;
 
 const AMOUNT = /^\d{1,7}(\.\d{2})?$/;
 
@@ -83,17 +93,27 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     : env.PRICING_FILE
       ? parsePricing(readFileSync(env.PRICING_FILE, 'utf8'))
       : null;
+  const legal = {
+    name: env.LEGAL_NAME?.trim() || '[Talos legal name]',
+    cr: env.LEGAL_CR?.trim() || '[commercial registration]',
+    address: env.LEGAL_ADDRESS?.trim() || '[address]',
+    email: env.PRIVACY_EMAIL?.trim() || 'privacy@example.com',
+  };
   if (production) {
     for (const [name, value] of [['SITE_URL', siteUrl], ['APP_URL', appUrl], ['FORM_URL', formUrl]] as const) {
       if (!value.startsWith('https://')) throw new Error(`${name} must be an https address in production`);
     }
     if (!whatsapp || !phone) throw new Error('CONTACT_WHATSAPP and CONTACT_PHONE are required in production');
     if (!pricing) throw new Error('PRICING_FILE is required in production');
+    if (!env.LEGAL_NAME || !env.LEGAL_CR || !env.LEGAL_ADDRESS || !env.PRIVACY_EMAIL) {
+      throw new Error('LEGAL_NAME, LEGAL_CR, LEGAL_ADDRESS and PRIVACY_EMAIL are required in production');
+    }
+    if (!LEGAL_REVIEWED) throw new Error('The terms of use and privacy policy are a draft: a lawyer reviews them first (site/src/legal.ts)');
   }
-  return { siteUrl, appUrl, formUrl, whatsapp, phone, pricing };
+  return { siteUrl, appUrl, formUrl, whatsapp, phone, pricing, legal };
 }
 
-export type PageKind = 'home' | 'pricing' | 'thanks' | 'sorry';
+export type PageKind = 'home' | 'pricing' | 'terms' | 'privacy' | 'thanks' | 'sorry';
 
 /** The address of a page in a language. Arabic is the root. */
 export function pathOf(lang: Lang, kind: PageKind = 'home'): string {
@@ -290,7 +310,7 @@ ${page.body}
   <div class="wrap foot-in">
     <div><a class="brand" href="${home}">${logo}<span>Talos</span></a><p style="margin-block-start:10px">${isolate(c, c.footer.about)}</p></div>
     <div><p>${isolate(c, c.footer.company)}${c.lang === 'ar' ? '، ' : ', '}${esc(c.footer.place)}</p><p>&copy; ${new Date().getFullYear()} ${isolate(c, c.footer.company)}. ${esc(c.footer.rights)}</p></div>
-    <nav aria-label="${esc(c.footer.facts)}"><a href="${pathOf(c.lang, 'pricing')}">${esc(c.nav.pricing)}</a><a href="${otherHref}" hreflang="${other}" lang="${other}">${esc(c.nav.other)}</a><a href="/llms.txt">${esc(c.footer.facts)}</a></nav>
+    <nav aria-label="${esc(c.footer.facts)}"><a href="${pathOf(c.lang, 'pricing')}">${esc(c.nav.pricing)}</a><a href="${pathOf(c.lang, 'terms')}"${page.kind === 'terms' ? ' aria-current="page"' : ''}>${esc(c.footer.terms)}</a><a href="${pathOf(c.lang, 'privacy')}"${page.kind === 'privacy' ? ' aria-current="page"' : ''}>${esc(c.footer.privacy)}</a><a href="${otherHref}" hreflang="${other}" lang="${other}">${esc(c.nav.other)}</a><a href="/llms.txt">${esc(c.footer.facts)}</a></nav>
   </div>
 </footer>
 </body>
@@ -457,6 +477,65 @@ function homeBody(c: Copy, cfg: SiteConfig): string {
 ${contactSection(c, cfg)}`;
 }
 
+/** Everything a plan includes: the features of the plans before it, then its own new ones, marked. */
+export function planFeatures(c: Copy, tier: number): { text: string; isNew: boolean }[] {
+  return c.pricing.tiers.slice(0, tier + 1).flatMap((t, i) => t.features.map((text) => ({ text, isNew: i === tier && tier > 0 })));
+}
+
+/** "Start your free trial" opens the dashboard's sign-up with the plan and period already chosen. */
+export function signUpUrl(cfg: SiteConfig, lang: Lang, tier: number, period: 'monthly' | 'yearly'): string {
+  return `${cfg.appUrl}/signup?plan=${PLAN_KEYS[tier]}&period=${period}&lang=${lang}`;
+}
+
+/** "2026-11-25" as "25 November 2026" or "25 نوفمبر 2026" (Western digits, as in the product). */
+export function legalDate(lang: Lang, iso: string): string {
+  const fmt = new Intl.DateTimeFormat(lang === 'ar' ? 'ar-u-nu-latn-ca-gregory' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  return fmt.format(new Date(`${iso}T00:00:00Z`));
+}
+
+/** The terms of use or the privacy policy, with Talos's details from the settings. */
+function legalBody(c: Copy, cfg: SiteConfig, page: LegalPage): string {
+  const l = cfg.legal;
+  const values: Record<string, string> = {
+    entity: `<bdi>${esc(l.name)}</bdi>`,
+    cr: `<bdi class="nb">${esc(l.cr)}</bdi>`,
+    address: `<bdi>${esc(l.address)}</bdi>`,
+    email: `<a href="mailto:${esc(l.email)}"><bdi>${esc(l.email)}</bdi></a>`,
+    pricing: `<a href="${pathOf(c.lang, 'pricing')}"><bdi>${esc(cfg.siteUrl.replace(/^https?:\/\//, '') + pathOf(c.lang, 'pricing'))}</bdi></a>`,
+    date: esc(legalDate(c.lang, LEGAL_UPDATED)),
+  };
+  // Only the words are isolated; each setting goes in whole, in its own direction.
+  const fill = (s: string) =>
+    s
+      .split(/(\{[a-z]+\})/)
+      .map((part) => {
+        const key = /^\{([a-z]+)\}$/.exec(part)?.[1];
+        if (key && !(key in values)) throw new Error(`legal: unknown placeholder ${part}`);
+        return key ? values[key]! : isolate(c, part);
+      })
+      .join('');
+  const block = (b: Block) => (typeof b === 'string' ? `<p>${fill(b)}</p>` : `<ul>${b.list.map((x) => `<li>${fill(x)}</li>`).join('')}</ul>`);
+  const draft = LEGAL_REVIEWED ? '' : `<p class="draft-note" role="note">${esc(legalCopies[c.lang].draft)}</p>`;
+  return `<section class="hero hero-small" aria-labelledby="legal-title">
+  <div class="wrap">
+    ${draft}
+    <h1 id="legal-title">${esc(page.title)}</h1>
+    <p class="lead">${fill(page.updated)}</p>
+  </div>
+</section>
+<section class="section legal-section">
+  <div class="wrap legal">
+    <nav class="legal-toc" aria-labelledby="toc-title"><h2 id="toc-title">${esc(page.contents)}</h2><ol>${page.sections
+      .map((x) => `<li><a href="#${x.id}">${esc(x.title.replace(/^\d+\.\s*/, ''))}</a></li>`)
+      .join('')}</ol></nav>
+    <article class="legal-text">
+      <p class="legal-intro">${fill(page.intro)}</p>
+      ${page.sections.map((x) => `<section id="${x.id}" aria-labelledby="${x.id}-title"><h2 id="${x.id}-title">${esc(x.title)}</h2>${x.body.map(block).join('')}</section>`).join('\n      ')}
+    </article>
+  </div>
+</section>`;
+}
+
 /** The plans. Monthly and yearly switch with two radio buttons and CSS, no script. */
 function pricingBody(c: Copy, cfg: SiteConfig): string {
   const pr = c.pricing;
@@ -477,9 +556,13 @@ function pricingBody(c: Copy, cfg: SiteConfig): string {
         <p class="price m">${price(i, 'monthly')}</p>
         <p class="price y">${price(i, 'yearly')}${saving ? `<span class="save">${esc(pr.save.replace('{amount}', sar(c, saving)))}</span>` : ''}</p>
         <p class="plan-debtors">${icons.users}${esc(pr.debtors)}</p>
-        <a class="btn ${last ? 'btn-primary' : 'btn-outline'}" href="${pathOf(c.lang)}#contact">${esc(pr.cta)}</a>
-        ${i > 0 ? `<p class="plan-plus">${iso(pr.everything.replace('{plan}', pr.tiers[i - 1]!.name))}</p>` : ''}
-        <ul class="plan-features">${t.features.map((f) => `<li>${icons.check}<span>${iso(f)}</span></li>`).join('')}</ul>
+        ${(['monthly', 'yearly'] as const)
+          .map((per) => `<a class="btn ${last ? 'btn-primary' : 'btn-outline'} ${per === 'monthly' ? 'm' : 'y'}" href="${esc(signUpUrl(cfg, c.lang, i, per))}">${esc(pr.cta)}</a>`)
+          .join('')}
+        <p class="plan-plus">${esc(pr.included)}</p>
+        <ul class="plan-features">${planFeatures(c, i)
+          .map((f) => `<li${f.isNew ? ' class="is-new"' : ''}>${icons.check}<span>${iso(f.text)}${f.isNew ? ` <span class="new-tag">${esc(pr.newTag)}</span>` : ''}</span></li>`)
+          .join('')}</ul>
       </article>`;
     })
     .join('');
@@ -500,7 +583,7 @@ function pricingBody(c: Copy, cfg: SiteConfig): string {
       <div class="period" aria-hidden="true"><label for="period-m">${esc(pr.monthly)}</label><label for="period-y">${esc(pr.yearly)}</label></div>
       <div class="plans">${cards}</div>
     </div>
-    <p class="plans-note">${esc(pr.moreDebtors)} ${p ? esc(p.vat === 'included' ? pr.vatIncluded : pr.vatExcluded) : ''}</p>
+    <p class="plans-note">${esc(pr.newHint)} ${esc(pr.moreDebtors)} ${p ? esc(p.vat === 'included' ? pr.vatIncluded : pr.vatExcluded) : ''}</p>
   </div>
 </section>
 <section class="section how" aria-labelledby="pfaq-title">
@@ -534,6 +617,15 @@ export function renderPage(c: Copy, cfg: SiteConfig, css: string, kind: PageKind
           index: true,
           data: [organization(cfg), product(c, cfg), faqData(c, c.pricing.faq)],
         }
+      : kind === 'terms' || kind === 'privacy'
+        ? {
+            kind,
+            title: legalCopies[c.lang][kind].meta.title,
+            description: legalCopies[c.lang][kind].meta.description,
+            body: legalBody(c, cfg, legalCopies[c.lang][kind]),
+            index: true,
+            data: [organization(cfg)],
+          }
       : kind === 'thanks' || kind === 'sorry'
         ? {
             kind,
@@ -562,7 +654,8 @@ export function llmsTxt(cfg: SiteConfig): string {
   const plans = pr.tiers
     .map((t, i) => {
       const cost = p ? ` It costs ${sar(c, p.tiers[i]!.monthly)} a month or ${sar(c, p.tiers[i]!.yearly)} a year${p.vat === 'excluded' ? ', not including 15% VAT' : ', including 15% VAT'}.` : '';
-      return `### ${t.name}\n\n${t.for}${i > 0 ? ` It includes everything in ${pr.tiers[i - 1]!.name}, and:` : ''}\n\n${t.features.map((f) => `- ${f}`).join('\n')}\n\nFrom 250 debtors.${cost}`;
+      const list = planFeatures(c, i).map((f) => `- ${f.text}${f.isNew ? ' (new in this plan)' : ''}`).join('\n');
+      return `### ${t.name}\n\n${t.for}${i > 0 ? ` It includes everything in ${pr.tiers[i - 1]!.name}, and more.` : ''} What it includes:\n\n${list}\n\nFrom 250 debtors.${cost}`;
     })
     .join('\n\n');
   return `# ${c.product}
@@ -593,6 +686,7 @@ ${[...c.faq.items, ...pr.faq].map((x) => `### ${x.q}\n\n${x.a}`).join('\n\n')}
 
 - [${c.product}, in English](${cfg.siteUrl}/en/)
 - [Pricing, in English](${cfg.siteUrl}/en/pricing/)
+- [Terms of use](${cfg.siteUrl}/en/terms/) and [privacy policy](${cfg.siteUrl}/en/privacy/), in English
 - [${copies.ar.product}، بالعربية](${cfg.siteUrl}/)
 - [الأسعار، بالعربية](${cfg.siteUrl}/pricing/)
 `;
@@ -600,7 +694,7 @@ ${[...c.faq.items, ...pr.faq].map((x) => `### ${x.q}\n\n${x.a}`).join('\n\n')}
 
 export function sitemap(cfg: SiteConfig): string {
   const today = new Date().toISOString().slice(0, 10);
-  const entries = (['home', 'pricing'] as const).flatMap((kind) => {
+  const entries = (['home', 'pricing', 'terms', 'privacy'] as const).flatMap((kind) => {
     const alt = `<xhtml:link rel="alternate" hreflang="ar" href="${cfg.siteUrl}${pathOf('ar', kind)}"/><xhtml:link rel="alternate" hreflang="en" href="${cfg.siteUrl}${pathOf('en', kind)}"/><xhtml:link rel="alternate" hreflang="x-default" href="${cfg.siteUrl}${pathOf('ar', kind)}"/>`;
     return (['ar', 'en'] as const).map((lang) => `<url><loc>${cfg.siteUrl}${pathOf(lang, kind)}</loc><lastmod>${today}</lastmod>${alt}</url>`);
   });
@@ -611,7 +705,7 @@ ${entries.join('\n')}
 `;
 }
 
-export const PAGES: PageKind[] = ['home', 'pricing', 'thanks', 'sorry'];
+export const PAGES: PageKind[] = ['home', 'pricing', 'terms', 'privacy', 'thanks', 'sorry'];
 
 export function build(cfg = loadConfig()) {
   rmSync(dist, { recursive: true, force: true });

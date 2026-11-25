@@ -447,6 +447,8 @@ export interface SignUpInput {
   cr_number: string;
   plan: PlanKey;
   period: BillingPeriod;
+  /** The person agreed to the terms of use (the API records which version and when). */
+  accepted_terms: boolean;
 }
 
 export type OnboardingStep = 'company' | 'owner' | 'bank' | 'authorization' | 'rules' | 'debtors';

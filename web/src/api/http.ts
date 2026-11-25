@@ -6,6 +6,7 @@
  * request forgery protection).
  */
 import { ApiError, type DataSource, type DebtQuery } from './source';
+import authLetter from '../assets/authorization-letter.docx?url';
 import noteTemplate from '../assets/promissory-note-template.docx?url';
 import type { DocumentInfo, ImportReport, LegalCaseDetail, LegalRow, NajizRun, Onboarding } from './types';
 
@@ -68,7 +69,7 @@ export const httpSource: DataSource = {
     form.append('file', file, file.name);
     return (await request<{ onboarding: Onboarding }>('POST', '/api/onboarding/files', form)).onboarding;
   },
-  authorizationTemplateUrl: () => null,
+  authorizationTemplateUrl: () => authLetter,
   forgotPassword: async (email) => {
     await request('POST', '/api/auth/forgot', { email }, { auth: false });
   },

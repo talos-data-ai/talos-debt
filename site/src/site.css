@@ -1352,3 +1352,114 @@ bdi {
   inline-size: 30px;
   block-size: 30px;
 }
+
+/* pricing: everything a plan includes, what is new marked */
+.plan-features li.is-new {
+  color: var(--ink);
+  font-weight: 600;
+}
+.new-tag {
+  display: inline-block;
+  margin-inline-start: 4px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--action);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.6;
+  vertical-align: 1px;
+}
+.plan-legal .new-tag {
+  background: var(--magenta-700);
+}
+
+/* terms of use and privacy policy */
+.draft-note {
+  display: inline-block;
+  margin-block-end: 16px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--amber-100);
+  color: var(--amber-700);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.legal-section {
+  padding-block-start: 48px;
+}
+.legal {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+.legal-toc {
+  position: sticky;
+  inset-block-start: 96px;
+  padding: 20px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 0.9375rem;
+}
+.legal-toc h2 {
+  font-size: 1rem;
+  margin-block-end: 10px;
+}
+.legal-toc ol {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-inline-start: 22px;
+  color: var(--ink-3);
+}
+.legal-toc a {
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.legal-toc a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.legal-text {
+  max-inline-size: 46rem;
+  color: var(--ink-2);
+  line-height: 1.75;
+}
+.legal-intro {
+  font-size: 1.0625rem;
+  color: var(--ink);
+}
+.legal-text section {
+  margin-block-start: 36px;
+  scroll-margin-block-start: 96px;
+}
+.legal-text h2 {
+  font-size: 1.25rem;
+  color: var(--ink);
+  margin-block-end: 10px;
+}
+.legal-text p + p,
+.legal-text ul + p,
+.legal-text p + ul {
+  margin-block-start: 12px;
+}
+.legal-text ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-inline-start: 22px;
+}
+.legal-text a {
+  color: var(--emerald-700);
+}
+@media (max-width: 900px) {
+  .legal {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .legal-toc {
+    position: static;
+  }
+}

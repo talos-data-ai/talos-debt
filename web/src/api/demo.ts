@@ -4,6 +4,7 @@
  * run on real data with no change.
  */
 import { fromHalalas, share, subtract, sum, toHalalas } from '../lib/money';
+import authLetter from '../assets/authorization-letter.docx?url';
 import noteTemplate from '../assets/promissory-note-template.docx?url';
 import { ApiError, type DataSource, type DebtQuery } from './source';
 import type {
@@ -473,7 +474,7 @@ export const demoSource: DataSource = {
     if (kind === 'authorization') d.authorization = { file: fileLite(file), signed_at: new Date().toISOString() };
     return pause(setupNow());
   },
-  authorizationTemplateUrl: () => null,
+  authorizationTemplateUrl: () => authLetter,
 
   me: () =>
     pause(

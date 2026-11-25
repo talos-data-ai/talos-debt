@@ -46,8 +46,8 @@ export interface DataSource {
   onboarding(): Promise<Onboarding>;
   saveOnboarding(input: OnboardingInput): Promise<Onboarding>;
   uploadOnboardingFile(kind: OnboardingFileKind, file: File): Promise<Onboarding>;
-  /** The authorization letter for the owner to sign, or null until its wording is final. */
-  authorizationTemplateUrl(): string | null;
+  /** The authorization letter (Arabic and English, Word) for the owner to fill in, sign and stamp. */
+  authorizationTemplateUrl(): string;
   totals(): Promise<Totals>;
   summary(): Promise<Summary>;
   debts(q: DebtQuery): Promise<DebtPage>;

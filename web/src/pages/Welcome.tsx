@@ -347,14 +347,10 @@ function AuthorizationStep({ o, canEdit, onDone }: { o: Onboarding; canEdit: boo
         <li>{t('welcome.auth2')}</li>
         <li>{t('welcome.auth3')}</li>
       </ol>
-      {url ? (
-        <a className="btn btn-quiet" href={url} download>
-          <Download size={17} aria-hidden="true" />
-          {t('welcome.authDownload')}
-        </a>
-      ) : (
-        <p className="callout">{t('welcome.authSoon')}</p>
-      )}
+      <a className="btn btn-quiet" href={url} download="authorization-letter.docx">
+        <Download size={17} aria-hidden="true" />
+        {t('welcome.authDownload')}
+      </a>
       <div className="setup-files">
         <FileUpload kind="authorization" file={o.authorization.file} required canEdit={canEdit} />
       </div>

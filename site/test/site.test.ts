@@ -10,8 +10,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { build, formatAmount, llmsTxt, loadConfig, parsePricing, renderPage, sitemap, yearlySaving, type SiteConfig } from '../src/build.js';
+import { build, formatAmount, legalDate, llmsTxt, loadConfig, parsePricing, planFeatures, renderPage, sitemap, yearlySaving, type SiteConfig } from '../src/build.js';
 import { ar, en, type Copy } from '../src/content.js';
+import { LEGAL_REVIEWED, legalCopies } from '../src/legal.js';
 
 const dist = fileURLToPath(new URL('../dist', import.meta.url));
 const page = (path: string) => readFileSync(join(dist, path), 'utf8');
@@ -33,6 +34,10 @@ const ENV = {
   CONTACT_WHATSAPP: '966 500 000 000',
   CONTACT_PHONE: '+966 50 000 0000',
   PRICING_JSON: PRICES,
+  LEGAL_NAME: 'Test Establishment',
+  LEGAL_CR: '4030000000',
+  LEGAL_ADDRESS: 'Jeddah, Saudi Arabia',
+  PRIVACY_EMAIL: 'privacy@site.test',
 };
 
 const CODES = new Set(['lang', 'dir', 'tag', 'ogLocale', 'tone', 'debtorOptions', 'ways']);
@@ -75,6 +80,31 @@ describe('words', () => {
   });
 });
 
+describe('terms of use and privacy policy', () => {
+  it('Arabic and English have the same sections, point for point', () => {
+    expect(shape(legalCopies.ar)).toEqual(shape(legalCopies.en));
+    for (const k of ['terms', 'privacy'] as const) {
+      expect(legalCopies.ar[k].sections.map((x) => x.id)).toEqual(legalCopies.en[k].sections.map((x) => x.id));
+    }
+  });
+
+  it('no em dashes, only known settings, and no English left in the Arabic text', () => {
+    for (const s of strings(legalCopies, new Set(['id']))) {
+      expect(s, s).not.toMatch(/—/);
+      for (const m of s.match(/\{\w+\}/g) ?? []) expect(['{entity}', '{cr}', '{address}', '{email}', '{pricing}', '{date}'], s).toContain(m);
+    }
+    for (const s of strings(legalCopies.ar, new Set(['id']))) {
+      expect(s, 'Arabic text uses « » for quotes').not.toMatch(/"/);
+      for (const latin of s.replace(/{\w+}/g, '').match(/[A-Za-z][A-Za-z0-9.\- ]*[A-Za-z0-9]/g) ?? []) expect(latin.trim(), s).toMatch(/^$/);
+    }
+  });
+
+  it('dates are written in full with Western digits', () => {
+    expect(legalDate('en', '2026-11-25')).toBe('25 November 2026');
+    expect(legalDate('ar', '2026-11-25')).toMatch(/^25 نوفمبر 2026$/);
+  });
+});
+
 describe('prices', () => {
   it('are read from settings and checked; a wrong file stops the build', () => {
     expect(parsePricing(PRICES).tiers[1]).toEqual({ monthly: '2222.50', yearly: '26670' });
@@ -106,6 +136,8 @@ describe('the built site', () => {
     ['en/index.html', 'en', 'https://site.test/en/', 'https://site.test/', 'https://site.test/en/'],
     ['pricing/index.html', 'ar', 'https://site.test/pricing/', 'https://site.test/pricing/', 'https://site.test/en/pricing/'],
     ['en/pricing/index.html', 'en', 'https://site.test/en/pricing/', 'https://site.test/pricing/', 'https://site.test/en/pricing/'],
+    ['terms/index.html', 'ar', 'https://site.test/terms/', 'https://site.test/terms/', 'https://site.test/en/terms/'],
+    ['en/privacy/index.html', 'en', 'https://site.test/en/privacy/', 'https://site.test/privacy/', 'https://site.test/en/privacy/'],
   ] as const;
 
   it('each page links to its other language for search engines', () => {
@@ -158,6 +190,39 @@ describe('the built site', () => {
     expect(page('pricing/index.html')).toContain('<span class="amount">1,110 ريال</span>');
   });
 
+  it('each plan lists everything in the plans before it, with what is new marked, and starts the sign-up with it', () => {
+    const html = page('en/pricing/index.html');
+    const cards = html.split('<article').slice(1);
+    expect(cards).toHaveLength(3);
+    cards.forEach((card, i) => {
+      const all = en.pricing.tiers.slice(0, i + 1).flatMap((t) => t.features);
+      for (const f of all) expect(card).toContain(f.replace(/'/g, '&#39;').replace(/\u2019/g, '\u2019'));
+      expect(card.match(/class="new-tag"/g)?.length ?? 0).toBe(i === 0 ? 0 : en.pricing.tiers[i]!.features.length);
+      const key = ['follow_up', 'legal', 'najiz'][i];
+      expect(card).toContain(`href="https://app.site.test/signup?plan=${key}&amp;period=monthly&amp;lang=en"`);
+      expect(card).toContain(`href="https://app.site.test/signup?plan=${key}&amp;period=yearly&amp;lang=en"`);
+    });
+    expect(planFeatures(ar, 2)).toHaveLength(ar.pricing.tiers.flatMap((t) => t.features).length);
+    expect(page('pricing/index.html')).toContain('lang=ar');
+  });
+
+  it('the terms and the privacy policy carry Talos\u2019s details from the settings, say they are a draft, and are linked from every page', () => {
+    for (const lang of ['ar', 'en'] as const) {
+      for (const k of ['terms', 'privacy'] as const) {
+        const html = page(`${lang === 'en' ? 'en/' : ''}${k}/index.html`);
+        expect(html).toContain('<bdi>Test Establishment</bdi>');
+        expect(html).toContain('<bdi class="nb">4030000000</bdi>');
+        expect(html).toContain('href="mailto:privacy@site.test"');
+        expect(html).not.toMatch(/\{(entity|cr|address|email|pricing|date)\}/);
+        for (const x of legalCopies[lang][k].sections) expect(html).toContain(`id="${x.id}"`);
+        if (!LEGAL_REVIEWED) expect(html).toContain(legalCopies[lang].draft);
+      }
+      const home = page(`${lang === 'en' ? 'en/' : ''}index.html`);
+      expect(home).toContain(`href="${lang === 'en' ? '/en' : ''}/terms/"`);
+      expect(home).toContain(`href="${lang === 'en' ? '/en' : ''}/privacy/"`);
+    }
+  });
+
   it('without prices the plans say "Ask us", and the offer for the first companies can be turned off', () => {
     const none = renderPage(en, loadConfig({ ...ENV, PRICING_JSON: undefined }), '', 'pricing');
     expect(none).toContain('<span class="amount">Ask us</span>');
@@ -201,7 +266,7 @@ describe('the built site', () => {
   it('a sitemap with both pages in both languages, robots, and plain facts with the plans', () => {
     const map = page('sitemap.xml');
     expect(map).toBe(sitemap(loadConfig(ENV)));
-    for (const u of ['/', '/en/', '/pricing/', '/en/pricing/']) expect(map).toContain(`<loc>https://site.test${u}</loc>`);
+    for (const u of ['/', '/en/', '/pricing/', '/en/pricing/', '/terms/', '/en/terms/', '/privacy/', '/en/privacy/']) expect(map).toContain(`<loc>https://site.test${u}</loc>`);
     expect(map).not.toContain('thanks');
     expect(page('robots.txt')).toContain('Sitemap: https://site.test/sitemap.xml');
     const llms = page('llms.txt');
@@ -218,7 +283,13 @@ describe('the built site', () => {
     expect(() => loadConfig({ ...prod, FORM_URL: 'http://a.test/x' })).toThrow(/FORM_URL/);
     expect(() => loadConfig({ ...prod, CONTACT_PHONE: undefined })).toThrow(/CONTACT_PHONE/);
     expect(() => loadConfig({ ...prod, PRICING_JSON: undefined })).toThrow(/PRICING_FILE/);
-    expect(loadConfig({ ...prod, SITE_URL: 'https://debt.talosksa.com/' }).siteUrl).toBe('https://debt.talosksa.com');
+    expect(() => loadConfig({ ...prod, PRIVACY_EMAIL: undefined })).toThrow(/PRIVACY_EMAIL/);
+    if (LEGAL_REVIEWED) {
+      expect(loadConfig({ ...prod, SITE_URL: 'https://debt.talosksa.com/' }).siteUrl).toBe('https://debt.talosksa.com');
+    } else {
+      // The terms and the privacy policy are never published before the lawyer has reviewed them.
+      expect(() => loadConfig(prod)).toThrow(/draft/);
+    }
   });
 
   it('text from settings is escaped', () => {
@@ -257,7 +328,7 @@ describe('in a real browser', () => {
     server?.close();
   });
 
-  for (const path of ['/', '/en/', '/pricing/', '/en/pricing/', '/thanks/', '/en/sorry/']) {
+  for (const path of ['/', '/en/', '/pricing/', '/en/pricing/', '/terms/', '/en/terms/', '/privacy/', '/en/privacy/', '/thanks/', '/en/sorry/']) {
     for (const width of [1366, 390]) {
       it(`${path} at ${width}px: no accessibility problems, no failed loads, nothing wider than the screen`, async () => {
         const p = await browser.newPage({ viewport: { width, height: 900 } });
