@@ -88,6 +88,26 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # The public website (Phase 7): both languages, search and AI files, and
+  # accessibility in a real browser at desktop and phone sizes.
+  site:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - run: npm run typecheck
+      - run: npm test
+
   # The dashboard in a real browser against the real API and database,
   # in English and Arabic, light and dark, desktop and phone (web/e2e).
   e2e:
