@@ -156,6 +156,10 @@ async function toast(page, text) {
 }
 
 async function axe(page, label) {
+  // Let entrance motion finish first, so colours are checked as people read them, not halfway through a fade.
+  await page.evaluate(() =>
+    Promise.all(document.getAnimations().filter((x) => x.effect?.getTiming().iterations !== Infinity).map((x) => x.finished.catch(() => undefined))),
+  );
   await page.addScriptTag({ content: AXE });
   const result = await page.evaluate(async () => {
     // eslint-disable-next-line no-undef
