@@ -74,6 +74,10 @@ const schema = z.object({
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'must be HH:MM')
     .default('08:00'),
 
+  // The public website's contact form (Phase 7): where the site is, and who gets the messages.
+  SITE_URL: z.url().optional(),
+  CONTACT_INBOX: z.email().optional(),
+
   // Najiz worker (Phase 5.4, `npm run najiz`).
   NAJIZ_URL: z.url().default('https://najiz.sa'),
   // How long the owner has to choose the number in the Nafath app.
