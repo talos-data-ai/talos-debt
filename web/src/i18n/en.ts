@@ -757,7 +757,7 @@ export const en = {
   'signup.fromDebtors': 'From 250 debtors',
   'signup.choose': 'Choose',
   'signup.included': 'What is included',
-  'signup.newHere': 'New in this plan',
+  'signup.everythingIn': 'Everything in {plan}, and:',
   'signup.seePrices': 'See the prices',
   'signup.continueWith': 'Continue with {plan}',
   'signup.detailsTitle': 'Create your account',

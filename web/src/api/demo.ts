@@ -226,6 +226,8 @@ const setup = {
   /** After a sign-up in the prototype, the sample user is the new company's owner. */
   signedUpAs: null as string | null,
 };
+// The prototype can open straight on a new company's setup (#/welcome?as=new-owner), for design reviews.
+if (typeof location !== 'undefined' && /[?&]as=new-owner\b/.test(location.hash)) setup.signedUpAs = 'Khalid Al-Ghamdi';
 const REQUIRED: OnboardingStep[] = ['company', 'owner', 'authorization'];
 function setupNow(): Onboarding {
   const d = setup.data;

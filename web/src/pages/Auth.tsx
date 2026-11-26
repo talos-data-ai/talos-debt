@@ -27,14 +27,21 @@ export function AuthLayout({ children, wide }: { children: ReactNode; wide?: boo
     <div className="auth">
       <aside className="auth-brand" aria-hidden="true">
         <div className="auth-brand-inner">
-          <LogoWordmark height={26} />
-          <svg className="auth-orbit" viewBox="-120 -120 240 240" role="presentation">
-            <circle r="100" className="auth-orbit-track" />
-            <circle r="100" className="auth-orbit-fill" pathLength={100} strokeDasharray="68 100" transform="rotate(-90)" />
-            <circle cx="0" cy="-100" r="7" className="auth-orbit-dot" />
-            <circle cx="86.6" cy="50" r="7" className="auth-orbit-dot" />
-            <circle cx="-86.6" cy="50" r="7" className="auth-orbit-dot" />
-            <circle r="26" className="auth-orbit-core" />
+          <LogoWordmark height={40} />
+          {/* A shield that draws itself, then rests while soft rings move out from it, slowly, like calm water. */}
+          <svg className="auth-guard" viewBox="-120 -120 240 240" role="presentation">
+            <defs>
+              <radialGradient id="auth-glow">
+                <stop offset="0" stopColor="#0e9f6e" stopOpacity="0.45" />
+                <stop offset="1" stopColor="#0e9f6e" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <circle r="104" className="auth-guard-ring" />
+            <circle r="60" className="auth-guard-ripple" />
+            <circle r="60" className="auth-guard-ripple auth-guard-ripple-2" />
+            <circle r="84" fill="url(#auth-glow)" className="auth-guard-glow" />
+            <path className="auth-guard-shield" pathLength={100} d="M0 -60 L48 -41 V-3 C48 30 27 51 0 62 C-27 51 -48 30 -48 -3 V-41 Z" />
+            <path className="auth-guard-check" pathLength={100} d="M-19 2 L-5 16 L21 -12" />
           </svg>
           <p className="auth-brand-line">{t('login.lead')}</p>
         </div>

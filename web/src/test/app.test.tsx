@@ -841,16 +841,14 @@ describe('sign-up and onboarding (7.5)', () => {
     expect(await screen.findByRole('radio', { name: ar('plan.follow_up') })).toBeChecked();
   });
 
-  it('each plan lists everything in the plans before it, then its own new features, marked', async () => {
+  it('each plan says it has everything in the plan before it, then lists only what it adds', async () => {
     renderAt('/signup');
     const card = (await screen.findByRole('radio', { name: en('plan.najiz') })).closest('label')!;
     const items = within(card).getAllByRole('listitem').map((li) => li.textContent);
-    const all = [...NEW_IN_PLAN.follow_up, ...NEW_IN_PLAN.legal, ...NEW_IN_PLAN.najiz];
-    expect(items).toHaveLength(all.length);
-    all.forEach((k, i) => expect(items[i]).toContain(en(k)));
-    expect(within(card).getAllByText(`(${en('signup.newHere')})`, { exact: false })).toHaveLength(NEW_IN_PLAN.najiz.length);
+    expect(items[0]).toBe(en('signup.everythingIn', { plan: en('plan.legal') }));
+    expect(items.slice(1)).toEqual(NEW_IN_PLAN.najiz.map((k) => en(k)));
     const first = screen.getByRole('radio', { name: en('plan.follow_up') }).closest('label')!;
-    expect(within(first).queryByText(`(${en('signup.newHere')})`, { exact: false })).toBeNull();
+    expect(within(first).getAllByRole('listitem').map((li) => li.textContent)).toEqual(NEW_IN_PLAN.follow_up.map((k) => en(k)));
   });
 
   it('the plan comes from the website link; a company that already has an account is told so', async () => {

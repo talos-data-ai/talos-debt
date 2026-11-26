@@ -18,7 +18,7 @@
  *   CONTACT_WHATSAPP  the WhatsApp number, digits only with the country code (9665XXXXXXXX)
  *   CONTACT_PHONE     the phone number as people should read it (+966 5X XXX XXXX)
  *   PRICING_FILE      a JSON file with the prices (see `Pricing`), kept outside the repository
- *   LEGAL_NAME, LEGAL_CR, LEGAL_ADDRESS, PRIVACY_EMAIL
+ *   LEGAL_NAME, LEGAL_CR, LEGAL_ADDRESS, LEGAL_ADDRESS_AR, PRIVACY_EMAIL
  *                     Talos's legal name, commercial registration, address and privacy email,
  *                     shown on the terms of use and the privacy policy
  */
@@ -51,7 +51,7 @@ export interface SiteConfig {
   phone: string | null;
   pricing: Pricing | null;
   /** Who Talos is, on the legal pages. */
-  legal: { name: string; cr: string; address: string; email: string };
+  legal: { name: string; cr: string; address: string; addressAr: string; email: string };
 }
 
 /** The plans in the order of `pricing.tiers`, as the dashboard's sign-up names them (?plan=). */
@@ -97,6 +97,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     name: env.LEGAL_NAME?.trim() || '[Talos legal name]',
     cr: env.LEGAL_CR?.trim() || '[commercial registration]',
     address: env.LEGAL_ADDRESS?.trim() || '[address]',
+    // The address as written in Arabic, for the Arabic pages.
+    addressAr: env.LEGAL_ADDRESS_AR?.trim() || env.LEGAL_ADDRESS?.trim() || '[العنوان]',
     email: env.PRIVACY_EMAIL?.trim() || 'privacy@example.com',
   };
   if (production) {
@@ -105,8 +107,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     }
     if (!whatsapp || !phone) throw new Error('CONTACT_WHATSAPP and CONTACT_PHONE are required in production');
     if (!pricing) throw new Error('PRICING_FILE is required in production');
-    if (!env.LEGAL_NAME || !env.LEGAL_CR || !env.LEGAL_ADDRESS || !env.PRIVACY_EMAIL) {
-      throw new Error('LEGAL_NAME, LEGAL_CR, LEGAL_ADDRESS and PRIVACY_EMAIL are required in production');
+    if (!env.LEGAL_NAME || !env.LEGAL_CR || !env.LEGAL_ADDRESS || !env.LEGAL_ADDRESS_AR || !env.PRIVACY_EMAIL) {
+      throw new Error('LEGAL_NAME, LEGAL_CR, LEGAL_ADDRESS, LEGAL_ADDRESS_AR and PRIVACY_EMAIL are required in production');
     }
     if (!LEGAL_REVIEWED) throw new Error('The terms of use and privacy policy are a draft: a lawyer reviews them first (site/src/legal.ts)');
   }
@@ -499,7 +501,7 @@ function legalBody(c: Copy, cfg: SiteConfig, page: LegalPage): string {
   const values: Record<string, string> = {
     entity: `<bdi>${esc(l.name)}</bdi>`,
     cr: `<bdi class="nb">${esc(l.cr)}</bdi>`,
-    address: `<bdi>${esc(l.address)}</bdi>`,
+    address: `<bdi>${esc(c.lang === 'ar' ? l.addressAr : l.address)}</bdi>`,
     email: `<a href="mailto:${esc(l.email)}"><bdi>${esc(l.email)}</bdi></a>`,
     pricing: `<a href="${pathOf(c.lang, 'pricing')}"><bdi>${esc(cfg.siteUrl.replace(/^https?:\/\//, '') + pathOf(c.lang, 'pricing'))}</bdi></a>`,
     date: esc(legalDate(c.lang, LEGAL_UPDATED)),
@@ -524,7 +526,7 @@ function legalBody(c: Copy, cfg: SiteConfig, page: LegalPage): string {
   </div>
 </section>
 <section class="section legal-section">
-  <div class="wrap legal">
+  <div class="wrap legal-doc">
     <nav class="legal-toc" aria-labelledby="toc-title"><h2 id="toc-title">${esc(page.contents)}</h2><ol>${page.sections
       .map((x) => `<li><a href="#${x.id}">${esc(x.title.replace(/^\d+\.\s*/, ''))}</a></li>`)
       .join('')}</ol></nav>
@@ -560,8 +562,8 @@ function pricingBody(c: Copy, cfg: SiteConfig): string {
           .map((per) => `<a class="btn ${last ? 'btn-primary' : 'btn-outline'} ${per === 'monthly' ? 'm' : 'y'}" href="${esc(signUpUrl(cfg, c.lang, i, per))}">${esc(pr.cta)}</a>`)
           .join('')}
         <p class="plan-plus">${esc(pr.included)}</p>
-        <ul class="plan-features">${planFeatures(c, i)
-          .map((f) => `<li${f.isNew ? ' class="is-new"' : ''}>${icons.check}<span>${iso(f.text)}${f.isNew ? ` <span class="new-tag">${esc(pr.newTag)}</span>` : ''}</span></li>`)
+        <ul class="plan-features">${i > 0 ? `<li class="is-all">${icons.layers}<span>${esc(pr.everything.replace('{plan}', pr.tiers[i - 1]!.name))}</span></li>` : ''}${t.features
+          .map((f) => `<li>${icons.check}<span>${iso(f)}</span></li>`)
           .join('')}</ul>
       </article>`;
     })

@@ -37,6 +37,7 @@ const ENV = {
   LEGAL_NAME: 'Test Establishment',
   LEGAL_CR: '4030000000',
   LEGAL_ADDRESS: 'Jeddah, Saudi Arabia',
+  LEGAL_ADDRESS_AR: 'جدة، المملكة العربية السعودية',
   PRIVACY_EMAIL: 'privacy@site.test',
 };
 
@@ -195,21 +196,25 @@ describe('the built site', () => {
     expect(page('pricing/index.html')).toContain('<span class="amount">1,110 ريال</span>');
   });
 
-  it('each plan lists everything in the plans before it, with what is new marked, and starts the sign-up with it', () => {
+  it('each plan says it has everything in the plan before it, lists what it adds, and starts the sign-up with it', () => {
     const html = page('en/pricing/index.html');
     const cards = html.split('<article').slice(1);
     expect(cards).toHaveLength(3);
     cards.forEach((card, i) => {
-      const all = en.pricing.tiers.slice(0, i + 1).flatMap((t) => t.features);
-      for (const f of all) expect(card).toContain(f.replace(/'/g, '&#39;').replace(/\u2019/g, '\u2019'));
-      expect(card.match(/class="new-tag"/g)?.length ?? 0).toBe(i === 0 ? 0 : en.pricing.tiers[i]!.features.length);
+      const items = card.match(/<li[^>]*>.*?<\/li>/g) ?? [];
+      const own = en.pricing.tiers[i]!.features;
+      expect(items).toHaveLength(own.length + (i > 0 ? 1 : 0));
+      if (i > 0) expect(items[0]).toContain(en.pricing.everything.replace('{plan}', en.pricing.tiers[i - 1]!.name));
+      for (const f of own) expect(card).toContain(f.replace(/'/g, '&#39;'));
       const key = ['follow_up', 'legal', 'najiz'][i];
       expect(card).toContain(`href="https://app.site.test/signup?plan=${key}&amp;period=monthly&amp;lang=en"`);
       expect(card).toContain(`href="https://app.site.test/signup?plan=${key}&amp;period=yearly&amp;lang=en"`);
     });
+    // AI assistants still read every plan's full list.
     expect(planFeatures(ar, 2)).toHaveLength(ar.pricing.tiers.flatMap((t) => t.features).length);
     expect(page('pricing/index.html')).toContain('lang=ar');
   });
+
 
   it('the terms and the privacy policy carry Talos\u2019s details from the settings, say they are a draft, and are linked from every page', () => {
     for (const lang of ['ar', 'en'] as const) {
@@ -351,6 +356,15 @@ describe('in a real browser', () => {
         expect(result).toEqual([]);
         const wide = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         expect(wide).toBeLessThanOrEqual(0);
+        if (width > 1000) {
+          // No section is squeezed into a narrow column on a wide screen (a page's style must not leak into another's).
+          const narrow = await p.evaluate(() =>
+            [...document.querySelectorAll('main section > .wrap h2, main section > div > h2')]
+              .filter((h) => !h.closest('.legal-toc, article') && h.getBoundingClientRect().width < 320)
+              .map((h) => h.textContent?.trim()),
+          );
+          expect(narrow).toEqual([]);
+        }
         await p.close();
       }, 30_000);
     }
