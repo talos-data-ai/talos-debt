@@ -23,16 +23,22 @@ export class SendBlocked extends Error {
   }
 }
 
-/** Why a company's debtors may not be messaged now (app.client_messaging_block, migration 0010). */
-export type ClientBlock = 'setup_not_finished' | 'account_not_active' | 'no_authorization' | 'payment_needed' | 'trial_ended';
-export const CLIENT_BLOCKS: readonly ClientBlock[] = ['setup_not_finished', 'account_not_active', 'no_authorization', 'payment_needed', 'trial_ended'];
+/** Why a company's debtors may not be messaged now (app.client_messaging_block, migrations 0010 and 0011). */
+export type ClientBlock = 'setup_not_finished' | 'account_not_active' | 'no_authorization' | 'payment_needed' | 'trial_ended' | 'subscription_ended';
+export const CLIENT_BLOCKS: readonly ClientBlock[] = ['setup_not_finished', 'account_not_active', 'no_authorization', 'payment_needed', 'trial_ended', 'subscription_ended'];
+/** The blocks that a payment lifts: Najiz filing stops for them too. */
+export const BILLING_BLOCKS: readonly ClientBlock[] = ['payment_needed', 'trial_ended', 'subscription_ended'];
 const BLOCK_TEXT: Record<ClientBlock, string> = {
   setup_not_finished: 'Finish setting up your company first (company, owner and the signed authorization letter)',
   account_not_active: 'This account is not active',
   no_authorization: 'Upload the signed authorization letter first',
   payment_needed: 'A payment is needed before Talos can message debtors again',
   trial_ended: 'The free trial has ended. Add a card to keep going',
+  subscription_ended: 'The subscription has ended. Subscribe again to keep going',
 };
+export function blockText(b: ClientBlock): string {
+  return BLOCK_TEXT[b];
+}
 
 // Debt statuses that must never receive reminders.
 const STOPPED = new Set(['paid', 'disputed', 'paused', 'legal_ready', 'in_legal', 'written_off', 'closed']);

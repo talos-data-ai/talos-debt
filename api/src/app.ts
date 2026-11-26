@@ -20,6 +20,11 @@ import { reminderRoutes } from './routes/reminders.js';
 import { workspaceRoutes } from './routes/workspace.js';
 import { GeminiClient, type LlmClient } from './ai/llm.js';
 import { webhookRoutes } from './routes/webhooks.js';
+import { billingRoutes, billingWebhookRoutes, fakeGatewayRoutes } from './routes/billing.js';
+import type { BillingDeps } from './billing/billing.js';
+import type { PaymentGateway } from './billing/gateway.js';
+import { loadPricing, type Pricing } from './billing/pricing.js';
+import { createGateway } from './billing/setup.js';
 import { createMailer, type Mailer } from './login/mailer.js';
 import { loginRoutes, type RateLimiter } from './login/routes.js';
 import { authenticate } from './login/session.js';
@@ -48,6 +53,10 @@ export interface AppDeps {
   contactLimiter?: RateLimiter;
   /** Sign-up limiter, per address. */
   signUpLimiter?: RateLimiter;
+  /** Payment provider; defaults to PAYMENT_DRIVER. Tests pass a fake. */
+  gateway?: PaymentGateway;
+  /** Prices; default from PRICING_FILE. */
+  pricing?: Pricing | null;
 }
 
 export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): FastifyInstance {
@@ -91,6 +100,14 @@ export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): Fas
     signUpRoutes(open, { pool, config, limiter: deps.signUpLimiter });
   });
 
+  // Subscription payments (7.6).
+  const gateway = deps.gateway ?? createGateway(config);
+  const pricing = deps.pricing !== undefined ? deps.pricing : loadPricing(config);
+  const billing: BillingDeps = { pool, workerPool: deps.workerPool, config, gateway, pricing, mailer, now };
+  if (gateway?.name === 'fake' && config.NODE_ENV !== 'production') {
+    app.register(async (open) => fakeGatewayRoutes(open));
+  }
+
   // The website's contact form: no login, its own body parser, emailed to Talos.
   app.register(async (site) => contactRoutes(site, { config, mailer, limiter: deps.contactLimiter }));
 
@@ -111,12 +128,15 @@ export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): Fas
     legalRoutes(api, { pool, storage, pdf });
     najizRoutes(api, pool);
     onboardingRoutes(api, { pool, storage });
+    billingRoutes(api, billing);
   });
 
   // Meta's webhook: no user login; requests are checked by signature instead.
   if (deps.workerPool) {
     const inbound = { pool, workerPool: deps.workerPool, config, sender: whatsapp, llm, now };
     app.register(async (hooks) => webhookRoutes(hooks, inbound, { processInline: deps.processWebhooksInline }));
+    const workerPool = deps.workerPool;
+    app.register(async (hooks) => billingWebhookRoutes(hooks, { ...billing, workerPool }));
   }
 
   app.setErrorHandler((err, req, reply) => {

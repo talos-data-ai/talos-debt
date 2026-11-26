@@ -21,6 +21,7 @@ const BLOCKED_STATUS: Record<SendBlocked['code'], number> = {
   no_authorization: 409,
   payment_needed: 402,
   trial_ended: 402,
+  subscription_ended: 402,
 };
 
 /** Manual sending by staff from the dashboard. */

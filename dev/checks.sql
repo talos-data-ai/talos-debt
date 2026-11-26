@@ -330,7 +330,10 @@ BEGIN
   END;
 
   -- Once active: a trial that ended or a failed payment stops messages at once.
-  UPDATE app.clients SET status = 'active', authorization_signed_at = now(), trial_ends_at = now() - interval '1 minute'
+  -- Only the system changes billing details (0011).
+  PERFORM set_config('app.actor_type', 'system', true);
+  UPDATE app.clients SET status = 'active', authorization_signed_at = now(), trial_ends_at = now() - interval '1 minute',
+                         founding_member = false
    WHERE id = r.client_id;
   ASSERT app.client_messaging_block(r.client_id) = 'trial_ended', 'CHECK 15i FAILED: an ended trial could still message';
   UPDATE app.clients SET billing_status = 'unpaid' WHERE id = r.client_id;
@@ -339,6 +342,80 @@ BEGIN
   ASSERT app.client_messaging_block(r.client_id) IS NULL, 'CHECK 15k FAILED: a paying company was blocked';
 
   RAISE NOTICE 'PASS 15: sign-up and onboarding follow their rules';
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 16. Subscription payments (0011)
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE c uuid := '11111111-1111-4111-8111-111111111111';
+        u uuid;
+        card uuid;
+BEGIN
+  PERFORM set_config('app.client_id', c::text, true);
+  SELECT id INTO u FROM app.users WHERE role = 'owner' LIMIT 1;
+
+  -- Staff cannot change the billing state; the system can. Staff may cancel.
+  PERFORM set_config('app.actor_type', 'user', true);
+  BEGIN
+    UPDATE app.clients SET billing_status = 'active', paid_until = now() + interval '1 year' WHERE id = c;
+    RAISE EXCEPTION 'CHECK 16a FAILED: staff changed the billing state';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  UPDATE app.clients SET cancel_at_period_end = true WHERE id = c;
+  PERFORM set_config('app.actor_type', 'system', true);
+
+  -- The founding members' free month: a trial that ended a minute ago still runs for them.
+  UPDATE app.clients SET billing_status = 'trial', trial_ends_at = now() - interval '1 minute',
+                         founding_member = true, cancel_at_period_end = false WHERE id = c;
+  ASSERT app.client_messaging_block(c) IS NULL, 'CHECK 16b FAILED: a founding member lost the free month';
+  UPDATE app.clients SET founding_member = false WHERE id = c;
+  ASSERT app.client_messaging_block(c) = 'trial_ended', 'CHECK 16c FAILED: an ended trial could still message';
+
+  -- A cancelled subscription stops when the paid period ends.
+  UPDATE app.clients SET billing_status = 'active', paid_until = now() - interval '1 minute', cancel_at_period_end = true WHERE id = c;
+  ASSERT app.client_messaging_block(c) = 'subscription_ended', 'CHECK 16d FAILED: a cancelled subscription kept running';
+  UPDATE app.clients SET billing_status = 'cancelled', cancelled_at = now() WHERE id = c;
+  ASSERT app.client_messaging_block(c) = 'subscription_ended', 'CHECK 16e FAILED: a cancelled company could message';
+  BEGIN
+    UPDATE app.clients SET billing_status = 'active' WHERE id = c;
+    RAISE EXCEPTION 'CHECK 16f FAILED: cancelled_at stayed on an active subscription';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+  UPDATE app.clients SET billing_status = 'active', cancelled_at = NULL, cancel_at_period_end = false,
+                         paid_until = now() + interval '1 month' WHERE id = c;
+  ASSERT app.client_messaging_block(c) IS NULL, 'CHECK 16g FAILED: a paying company was blocked';
+
+  -- One active card and one charge in progress per company.
+  INSERT INTO app.billing_cards (client_id, gateway, token, status, brand, last_four, activated_at, added_by)
+  VALUES (c, 'fake', 'token_check_one', 'active', 'mada', '1010', now(), u) RETURNING id INTO card;
+  BEGIN
+    INSERT INTO app.billing_cards (client_id, gateway, token, status, brand, last_four, activated_at, added_by)
+    VALUES (c, 'fake', 'token_check_two', 'active', 'visa', '1111', now(), u);
+    RAISE EXCEPTION 'CHECK 16h FAILED: two active cards';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+  INSERT INTO app.billing_charges (client_id, card_id, reason, plan, billing_period, amount, vat_amount, period_start, period_end)
+  VALUES (c, card, 'renewal', 'legal', 'monthly', 115, 15, now(), now() + interval '1 month');
+  BEGIN
+    INSERT INTO app.billing_charges (client_id, card_id, reason, plan, billing_period, amount, vat_amount, period_start, period_end)
+    VALUES (c, card, 'pay_now', 'legal', 'monthly', 115, 15, now(), now() + interval '1 month');
+    RAISE EXCEPTION 'CHECK 16i FAILED: two charges at once';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+  BEGIN
+    UPDATE app.billing_charges SET status = 'paid', finished_at = now() WHERE client_id = c;
+    RAISE EXCEPTION 'CHECK 16j FAILED: a charge was paid with no payment id from the provider';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+
+  -- Another company sees none of it.
+  PERFORM set_config('app.client_id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
+  ASSERT (SELECT count(*) FROM app.billing_cards) = 0, 'CHECK 16k FAILED: another company can see a card';
+  ASSERT (SELECT count(*) FROM app.billing_charges) = 0, 'CHECK 16l FAILED: another company can see a charge';
+  PERFORM set_config('app.client_id', c::text, true);
+
+  RAISE NOTICE 'PASS 16: subscription payments follow their rules';
 END $$;
 
 ROLLBACK;

@@ -18,6 +18,7 @@ import { withTenant } from '../db.js';
 import { loadRows, missingOf } from '../legal/case.js';
 import { loadRunView, stopRun } from '../najiz/runs.js';
 import { idParam, parseOr400 } from '../validation.js';
+import { BILLING_BLOCKS, blockText, type ClientBlock } from '../whatsapp/outbound.js';
 
 const startBody = z.object({
   debt_ids: z.array(z.uuid()).min(1).max(20).refine((x) => new Set(x).size === x.length, 'Each debt once'),
@@ -85,6 +86,9 @@ export function najizRoutes(app: FastifyInstance, pool: pg.Pool) {
     if (!body) return;
     const user = req.user!;
     const result = await withTenant(pool, tenantOf(user), async (db) => {
+      // No filing while a payment is needed, the trial has ended or the subscription has ended (terms, section 3).
+      const block = (await db.query<{ b: ClientBlock | null }>(`SELECT app.client_messaging_block(app.current_client_id()) AS b`)).rows[0]!.b;
+      if (block && BILLING_BLOCKS.includes(block)) return { code: 402 as const, error: block, message: blockText(block) };
       // Lock the debts, so two people starting at once cannot file the same note twice.
       const found = await db.query(`SELECT id FROM app.debts WHERE id = ANY($1) ORDER BY id FOR UPDATE`, [body.debt_ids]);
       if (found.rowCount !== body.debt_ids.length) return { code: 404 as const };
@@ -131,9 +135,9 @@ export function najizRoutes(app: FastifyInstance, pool: pg.Pool) {
       return { code: 201 as const, run: await loadRunView(db, run.id) };
     }).catch(busy);
     if (result.code === 404) return reply.code(404).send({ error: 'not_found', message: 'Debt not found' });
-    if (result.code === 409) {
-      const { code: _c, ...rest } = result;
-      return reply.code(409).send(rest);
+    if (result.code === 409 || result.code === 402) {
+      const { code, ...rest } = result;
+      return reply.code(code).send(rest);
     }
     return reply.code(201).send({ run: result.run });
   });

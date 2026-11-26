@@ -213,6 +213,7 @@ async function runSendReminder(deps: TaskDeps, task: ClaimedTask): Promise<TaskO
         case 'no_authorization':
         case 'payment_needed':
         case 'trial_ended':
+        case 'subscription_ended':
           await finish(db, now, task.id, 'skipped', { reason: err.code });
           return { status: 'skipped', reason: err.code };
         default: {
