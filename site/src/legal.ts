@@ -6,9 +6,8 @@
  * Protection Law (PDPL), its Implementing Regulations and the Regulation on
  * Personal Data Transfer outside the Kingdom, and from what the product does
  * today. The terms and the privacy policy were approved by Sal's lawyer on
- * 26 November 2026. The refund and cancellation policy (written 26 November
- * 2026, with payments, step 7.6) and the line of the terms that points to it
- * wait for the lawyer.
+ * 26 November 2026; the refund and cancellation policy (written for payments,
+ * step 7.6) and the line of the terms that points to it, the same day.
  *
  * Any change to the meaning of these texts goes back to the lawyer: set that
  * page to false in `REVIEWED` until it is approved (the page then says it is a
@@ -30,7 +29,7 @@ export type LegalKind = 'terms' | 'privacy' | 'refunds';
 export const LEGAL_KINDS: LegalKind[] = ['terms', 'privacy', 'refunds'];
 
 /** Which pages the lawyer has approved as they are written here. */
-export const REVIEWED: Record<LegalKind, boolean> = { terms: false, privacy: true, refunds: false };
+export const REVIEWED: Record<LegalKind, boolean> = { terms: true, privacy: true, refunds: true };
 /** All of them: a production build needs this. */
 export const LEGAL_REVIEWED = LEGAL_KINDS.every((k) => REVIEWED[k]);
 /** The date of the last change, shown on every page. */
