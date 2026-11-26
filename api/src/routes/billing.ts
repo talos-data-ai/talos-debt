@@ -201,7 +201,7 @@ export function billingWebhookRoutes(app: FastifyInstance, deps: BillingDeps & {
       type?: string;
       secret_token?: string;
       live?: boolean;
-      data?: { id?: string; metadata?: { charge_id?: string; client_id?: string } };
+      data?: { id?: string; webhook_id?: string; verification_code?: string; metadata?: { charge_id?: string; client_id?: string } };
     } | null;
     const given = Buffer.from(String(body?.secret_token ?? ''));
     const want = Buffer.from(secret);
@@ -221,7 +221,15 @@ export function billingWebhookRoutes(app: FastifyInstance, deps: BillingDeps & {
 
     let note: string | null = null;
     try {
-      note = await handlePaymentEvent(deps, body.type, body.data?.id, body.data?.metadata?.charge_id);
+      if (body.type === 'webhook_verification') {
+        // A new webhook gets nothing until it is confirmed with the code sent here (Moyasar, Verify Webhook).
+        const code = String(body.data?.verification_code ?? '');
+        const hook = String(body.data?.webhook_id ?? body.data?.id ?? '');
+        if (!/^\d{6}$/.test(code) || !hook || !gateway.verifyWebhook) note = 'bad_verification';
+        else await gateway.verifyWebhook(hook, code);
+      } else {
+        note = await handlePaymentEvent(deps, body.type, body.data?.id, body.data?.metadata?.charge_id);
+      }
     } catch (err) {
       note = `error: ${String((err as Error).message).slice(0, 300)}`;
       req.log.error({ event: eventRow.id }, 'payment webhook failed');

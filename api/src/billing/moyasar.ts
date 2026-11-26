@@ -19,6 +19,7 @@ import {
  *   GET    /v1/payments/:id
  *   GET    /v1/tokens/:id    is the card confirmed (active)?
  *   DELETE /v1/tokens/:id
+ *   POST   /v1/webhooks/:id/verify   confirm a new webhook with the code sent to it
  *
  * The browser creates the token itself (POST /v1/tokens with the publishable
  * key); the card number never reaches Talos. A token payment does not ask the
@@ -137,6 +138,11 @@ export class MoyasarGateway implements PaymentGateway {
     // A refused request (bad token, used given_id with other details...): nothing was charged.
     const d = data as { type?: string; message?: string } | null;
     throw new GatewayRefused(d?.message ?? `payment answered ${status}`, d?.type ?? `http_${status}`);
+  }
+
+  async verifyWebhook(webhookId: string, code: string): Promise<void> {
+    const { status } = await this.call('POST', `/webhooks/${encodeURIComponent(webhookId)}/verify`, { code });
+    if (status !== 200 && status !== 201 && status !== 204) throw new GatewayRefused(`webhook verify answered ${status}`, 'webhook_verify_failed');
   }
 
   async fetchPayment(id: string): Promise<GatewayPayment | null> {
