@@ -1,7 +1,7 @@
 import { Bell, CheckCheck, FileSpreadsheet, Gavel, LogOut, Menu, Moon, Orbit, Search, Settings, Sun, Users, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApprovals, useMe, useNotifications, useSource, useSummary, useWaitingReminders } from '../api/hooks';
 import { useI18n, type MessageKey } from '../i18n';
 import { Initials } from './bits';
@@ -150,6 +150,14 @@ export function Shell() {
         </header>
 
         <main id="main" ref={mainRef} tabIndex={-1} className="main">
+          {me.data?.client?.status === 'onboarding' && location.pathname !== '/welcome' && (
+            <div className="setup-banner" role="status">
+              <span>{t('welcome.banner')}</span>
+              <Link to="/welcome" className="btn btn-primary btn-small">
+                {t('welcome.bannerCta')}
+              </Link>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

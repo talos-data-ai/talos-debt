@@ -207,6 +207,12 @@ async function runSendReminder(deps: TaskDeps, task: ClaimedTask): Promise<TaskO
         case 'not_found':
         case 'debt_not_active':
         case 'debtor_not_contactable':
+        // The company may not message now; the planner plans again once it may.
+        case 'setup_not_finished':
+        case 'account_not_active':
+        case 'no_authorization':
+        case 'payment_needed':
+        case 'trial_ended':
           await finish(db, now, task.id, 'skipped', { reason: err.code });
           return { status: 'skipped', reason: err.code };
         default: {

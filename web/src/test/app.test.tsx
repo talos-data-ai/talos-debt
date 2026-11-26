@@ -16,6 +16,7 @@ import { translate } from '../i18n';
 import { ar as arText } from '../i18n/ar';
 import { en as enText } from '../i18n/en';
 import { notificationLink, notificationText } from '../lib/notifications';
+import { NEW_IN_PLAN } from '../lib/plans';
 import { safeNext } from '../pages/Auth';
 
 const en = (k: Parameters<typeof translate>[1], v?: Record<string, string | number>) => translate('en', k, v);
@@ -812,5 +813,124 @@ describe('legal and Najiz filing', () => {
     await user.type(within(dialog).getByLabelText(`${en('case.statusNote')} (${en('common.optional')})`), 'Text message from Najiz');
     await user.click(within(dialog).getByRole('button', { name: en('common.save') }));
     await waitFor(() => expect(sent).toEqual([{ status: 'order_issued', najiz_request_number: '401014800012345', note: 'Text message from Najiz' }]));
+  });
+});
+
+describe('sign-up and onboarding (7.5)', () => {
+  it('the login page leads to the plans: only one plan can be chosen, and every field is checked, in Arabic', async () => {
+    const user = userEvent.setup();
+    renderAt('/login', demoSource, 'ar');
+    await user.click(await screen.findByRole('link', { name: ar('login.startTrial') }));
+    expect(await screen.findByRole('heading', { name: ar('signup.chooseTitle') })).toBeInTheDocument();
+    const plans = within(screen.getByRole('radiogroup', { name: ar('signup.plan') })).getAllByRole('radio');
+    expect(plans).toHaveLength(3);
+    expect(plans.filter((r) => (r as HTMLInputElement).checked)).toHaveLength(1);
+    await user.click(screen.getByRole('radio', { name: ar('plan.najiz') }));
+    await user.click(screen.getByRole('radio', { name: ar('plan.follow_up') }));
+    expect(plans.filter((r) => (r as HTMLInputElement).checked)).toEqual([screen.getByRole('radio', { name: ar('plan.follow_up') })]);
+    await user.click(screen.getByRole('button', { name: ar('signup.continueWith', { plan: ar('plan.follow_up') }) }));
+    expect(await screen.findByRole('heading', { name: ar('signup.detailsTitle') })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: ar('signup.submit') }));
+    expect(screen.getByText(ar('signup.phoneBad'))).toBeInTheDocument();
+    expect(screen.getByText(ar('signup.emailBad'))).toBeInTheDocument();
+    expect(screen.getByText(ar('signup.crBad'))).toBeInTheDocument();
+    expect(screen.getByText(ar('reset.tooShort'))).toBeInTheDocument();
+    expect(screen.getByText(ar('signup.acceptNeeded'))).toBeInTheDocument();
+    // Back to the plans keeps the choice.
+    await user.click(screen.getByRole('button', { name: ar('signup.change') }));
+    expect(await screen.findByRole('radio', { name: ar('plan.follow_up') })).toBeChecked();
+  });
+
+  it('each plan lists everything in the plans before it, then its own new features, marked', async () => {
+    renderAt('/signup');
+    const card = (await screen.findByRole('radio', { name: en('plan.najiz') })).closest('label')!;
+    const items = within(card).getAllByRole('listitem').map((li) => li.textContent);
+    const all = [...NEW_IN_PLAN.follow_up, ...NEW_IN_PLAN.legal, ...NEW_IN_PLAN.najiz];
+    expect(items).toHaveLength(all.length);
+    all.forEach((k, i) => expect(items[i]).toContain(en(k)));
+    expect(within(card).getAllByText(`(${en('signup.newHere')})`, { exact: false })).toHaveLength(NEW_IN_PLAN.najiz.length);
+    const first = screen.getByRole('radio', { name: en('plan.follow_up') }).closest('label')!;
+    expect(within(first).queryByText(`(${en('signup.newHere')})`, { exact: false })).toBeNull();
+  });
+
+  it('the plan comes from the website link; a company that already has an account is told so', async () => {
+    const user = userEvent.setup();
+    renderAt('/signup?plan=najiz&period=yearly');
+    expect(await screen.findByRole('radio', { name: en('plan.najiz') })).toBeChecked();
+    expect(screen.getByRole('radio', { name: en('signup.yearly') })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: en('signup.continueWith', { plan: en('plan.najiz') }) }));
+    expect(await screen.findByText(en('signup.planPeriod', { plan: en('plan.najiz'), period: en('signup.yearly') }))).toBeInTheDocument();
+    await user.type(screen.getByLabelText(en('signup.fullName')), 'Khalid Al-Nokhba');
+    await user.type(screen.getByLabelText(en('signup.phone')), '0500000100');
+    await user.type(screen.getByLabelText(en('signup.email')), 'khalid@alnokhba.example');
+    await user.type(screen.getByLabelText(en('login.password')), 'a long enough password');
+    await user.type(screen.getByLabelText(en('signup.legalName')), 'Al Nokhba Delivery Co.');
+    await user.type(screen.getByLabelText(en('signup.cr')), '7000000000');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: en('signup.submit') }));
+    expect(await screen.findByText(en('error.company_exists'))).toBeInTheDocument();
+  });
+
+  it('a new company goes from sign-up to setup, step by step, with a progress bar', async () => {
+    const signed: unknown[] = [];
+    const user = userEvent.setup({ applyAccept: false });
+    renderAt('/signup', { ...withRole('owner'), signUp: async (i) => void signed.push(i) });
+    await user.click(await screen.findByRole('button', { name: en('signup.continueWith', { plan: en('plan.legal') }) }));
+    await user.type(await screen.findByLabelText(en('signup.fullName')), 'Khalid');
+    await user.type(screen.getByLabelText(en('signup.phone')), '0500000100');
+    await user.type(screen.getByLabelText(en('signup.email')), 'k@alnokhba.example');
+    await user.type(screen.getByLabelText(en('login.password')), 'a long enough password');
+    await user.type(screen.getByLabelText(en('signup.legalName')), 'Al Nokhba Delivery Co.');
+    await user.type(screen.getByLabelText(en('signup.cr')), '4030000000');
+    expect(screen.getByRole('link', { name: en('signup.terms') })).toHaveAttribute('href', expect.stringMatching(/\/en\/terms\/$/));
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: en('signup.submit') }));
+    expect(await screen.findByRole('heading', { name: en('welcome.title') })).toBeInTheDocument();
+    expect(signed).toEqual([expect.objectContaining({ plan: 'legal', period: 'monthly', cr_number: '4030000000', accepted_terms: true })]);
+    expect(screen.getByText(en('welcome.progress', { done: 0, total: 6 }))).toBeInTheDocument();
+
+    // Company: the unified number is checked, and the commercial registration must be a PDF.
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+    expect(screen.getByText(en('welcome.unifiedBad'))).toBeInTheDocument();
+    await user.type(screen.getByLabelText(en('welcome.unified')), '7000000001');
+    const cr = screen.getByLabelText(en('welcome.file.cr'));
+    await user.upload(cr, new File(['x'], 'cr.png', { type: 'image/png' }));
+    expect(await screen.findByText(en('welcome.pdfOnly'))).toBeInTheDocument();
+    await user.upload(cr, new File(['%PDF-'], 'cr.pdf', { type: 'application/pdf' }));
+    expect(await screen.findByText('cr.pdf')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+
+    // Owner: the ID number is checked, then only its last four digits are shown.
+    expect(await screen.findByRole('heading', { name: en('welcome.step.owner') })).toBeInTheDocument();
+    expect(screen.getByText(en('welcome.progress', { done: 1, total: 6 }))).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: en('idtype.iqama') }));
+    await user.type(screen.getByLabelText(en('welcome.idNumber')), '1000000100');
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+    expect(screen.getByText(en('welcome.idBadIqama'))).toBeInTheDocument();
+    await user.clear(screen.getByLabelText(en('welcome.idNumber')));
+    await user.type(screen.getByLabelText(en('welcome.idNumber')), '2000000100');
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+    expect(screen.getByText(en('welcome.idCheck'))).toBeInTheDocument(); // a mistyped digit is caught
+    await user.clear(screen.getByLabelText(en('welcome.idNumber')));
+    await user.type(screen.getByLabelText(en('welcome.idNumber')), '2000000105');
+    await user.click(screen.getByRole('button', { name: en('welcome.saveNext') }));
+    expect(await screen.findByRole('heading', { name: en('welcome.step.bank') })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: new RegExp(en('welcome.step.owner')) }));
+    expect(await screen.findByText(en('welcome.idSaved', { last4: '0105' }))).toBeInTheDocument();
+
+    // Authorization: the letter to sign is a Word file to download.
+    await user.click(screen.getByRole('button', { name: new RegExp(en('welcome.step.authorization')) }));
+    expect(await screen.findByRole('link', { name: en('welcome.authDownload') })).toHaveAttribute('download', 'authorization-letter.docx');
+  });
+
+  it('a company still setting up sees a banner on every page that leads to setup', async () => {
+    const user = userEvent.setup();
+    renderAt('/debtors', {
+      ...demoSource,
+      me: async () => ({ ...(await demoSource.me()), client: { ...(await demoSource.me()).client!, status: 'onboarding' } }),
+    }, 'ar');
+    await user.click(await screen.findByRole('link', { name: ar('welcome.bannerCta') }));
+    expect(await screen.findByRole('heading', { name: ar('welcome.title') })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: ar('welcome.bannerCta') })).not.toBeInTheDocument();
   });
 });

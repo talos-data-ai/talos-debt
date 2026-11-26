@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 import type { DataSource, DebtQuery, DisputeDecision, PaymentInput } from './source';
-import type { ApproveFilingInput, NajizUploadKind, DocType, FollowUpRules, LegalStatusInput, NajizDetailsInput, NewDebtorInput, User } from './types';
+import type { ApproveFilingInput, NajizUploadKind, DocType, FollowUpRules, LegalStatusInput, NajizDetailsInput, NewDebtorInput, OnboardingFileKind, OnboardingInput, User } from './types';
 
 export const SourceContext = createContext<DataSource | null>(null);
 
@@ -48,6 +48,10 @@ export const useNotifications = () => {
 export const useRules = () => {
   const s = useSource();
   return useQuery({ queryKey: ['rules'], queryFn: () => s.rules(), staleTime: 5 * 60_000 });
+};
+export const useOnboarding = (enabled = true) => {
+  const s = useSource();
+  return useQuery({ queryKey: ['onboarding'], queryFn: () => s.onboarding(), enabled });
 };
 export const useUsers = () => {
   const s = useSource();
@@ -118,6 +122,10 @@ export const useSaveNajizDetails = () => useAction((s, a: { debtId: string; inpu
 export const useApproveFiling = () => useAction((s, a: { debtId: string; input: ApproveFilingInput }) => s.approveFiling(a.debtId, a.input), LEGAL_VIEWS);
 export const useStartNajizRun = () =>
   useAction((s, a: { debtIds: string[]; checkedNotOnNajiz?: boolean }) => s.startNajizRun(a.debtIds, { checkedNotOnNajiz: a.checkedNotOnNajiz }), LEGAL_VIEWS);
+const SETUP_VIEWS = ['onboarding', 'me', 'rules', 'legal', 'legalCase'];
+export const useSaveOnboarding = () => useAction((s, input: OnboardingInput) => s.saveOnboarding(input), SETUP_VIEWS);
+export const useUploadOnboardingFile = () =>
+  useAction((s, a: { kind: OnboardingFileKind; file: File }) => s.uploadOnboardingFile(a.kind, a.file), SETUP_VIEWS);
 export const useStartNajizCheck = () => useAction((s, _: void) => s.startNajizCheck(), LEGAL_VIEWS);
 export const useCancelNajizRun = () => useAction((s, id: string) => s.cancelNajizRun(id), [...LEGAL_VIEWS, 'najizRun']);
 export const useUploadLegalFile = () =>

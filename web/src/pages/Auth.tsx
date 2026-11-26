@@ -12,7 +12,7 @@ import { LogoMark, LogoWordmark } from '../components/Logo';
 import { Field, FormError, errorText } from '../components/ui';
 import { useI18n } from '../i18n';
 
-const PASSWORD_MIN = 10;
+export const PASSWORD_MIN = 10;
 
 /** Only paths inside the app are followed after login, never another site. */
 export function safeNext(next: string | null): string {
@@ -21,7 +21,7 @@ export function safeNext(next: string | null): string {
   return next;
 }
 
-function AuthLayout({ children }: { children: ReactNode }) {
+export function AuthLayout({ children, wide }: { children: ReactNode; wide?: boolean }) {
   const { t, lang, setLang } = useI18n();
   return (
     <div className="auth">
@@ -48,13 +48,13 @@ function AuthLayout({ children }: { children: ReactNode }) {
             {t('lang.switch')}
           </button>
         </div>
-        <div className="auth-card">{children}</div>
+        <div className={`auth-card${wide ? ' auth-card-wide' : ''}`}>{children}</div>
       </main>
     </div>
   );
 }
 
-function PasswordInput({ value, onChange, autoComplete, ...p }: { value: string; onChange: (v: string) => void; autoComplete: string; id: string; 'aria-describedby'?: string; 'aria-invalid'?: boolean }) {
+export function PasswordInput({ value, onChange, autoComplete, ...p }: { value: string; onChange: (v: string) => void; autoComplete: string; id: string; 'aria-describedby'?: string; 'aria-invalid'?: boolean }) {
   const { t } = useI18n();
   const [shown, setShown] = useState(false);
   return (
@@ -119,6 +119,9 @@ export function LoginPage() {
       <Link to={`/forgot${email ? `?email=${encodeURIComponent(email)}` : ''}`} className="link auth-alt">
         {t('login.forgot')}
       </Link>
+      <p className="auth-new">
+        {t('login.new')} <Link to="/signup" className="link">{t('login.startTrial')}</Link>
+      </p>
     </AuthLayout>
   );
 }

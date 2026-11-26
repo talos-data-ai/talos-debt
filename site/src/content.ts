@@ -85,7 +85,9 @@ export interface Copy {
     vatIncluded: string;
     debtors: string;
     moreDebtors: string;
-    everything: string;
+    included: string;
+    newTag: string;
+    newHint: string;
     cta: string;
     trial: string;
     founding: string;
@@ -95,7 +97,7 @@ export interface Copy {
   };
   thanks: { title: string; text: string; back: string };
   sorry: { title: string; text: string; back: string };
-  footer: { about: string; company: string; place: string; facts: string; rights: string };
+  footer: { about: string; company: string; place: string; facts: string; rights: string; terms: string; privacy: string };
 }
 
 export const en: Copy = {
@@ -357,7 +359,9 @@ export const en: Copy = {
     vatIncluded: 'Prices include 15% VAT.',
     debtors: 'From 250 debtors',
     moreDebtors: 'More debtors? Ask us for the price.',
-    everything: 'Everything in {plan}, and:',
+    included: 'What is included',
+    newTag: 'New',
+    newHint: 'Each plan has everything in the plan before it. What is new in a plan is marked New.',
     cta: 'Start your free trial',
     trial: '14 days free on every plan',
     founding: 'The first 10 companies get their first month free',
@@ -432,6 +436,8 @@ export const en: Copy = {
     place: 'Jeddah, Saudi Arabia',
     facts: 'Facts for AI assistants',
     rights: 'All rights reserved.',
+    terms: 'Terms of use',
+    privacy: 'Privacy policy',
   },
 };
 
@@ -692,7 +698,9 @@ export const ar: Copy = {
     vatIncluded: 'الأسعار تشمل ضريبة القيمة المضافة 15%.',
     debtors: 'من 250 مديناً',
     moreDebtors: 'مدينون أكثر؟ اسألنا عن السعر.',
-    everything: 'كل ما في باقة {plan}، إضافة إلى:',
+    included: 'ما تشمله الباقة',
+    newTag: 'جديد',
+    newHint: 'كل باقة فيها كل ما في الباقة التي قبلها. وما يُضاف في كل باقة عليه علامة جديد.',
     cta: 'ابدأ تجربتك المجانية',
     trial: '14 يوماً مجاناً في كل باقة',
     founding: 'أول 10 شركات تحصل على الشهر الأول مجاناً',
@@ -767,6 +775,8 @@ export const ar: Copy = {
     place: 'جدة، المملكة العربية السعودية',
     facts: 'معلومات للمساعدات الذكية',
     rights: 'جميع الحقوق محفوظة.',
+    terms: 'شروط الاستخدام',
+    privacy: 'سياسة الخصوصية',
   },
 };
 

@@ -78,6 +78,7 @@ async function plan(deps: { pool: pg.Pool; workerPool: pg.Pool; now: () => Date 
               coalesce(r.max_attempts, 5) AS max_attempts
          FROM app.debts d
          JOIN app.clients c  ON c.id = d.client_id AND c.status = 'active'
+                            AND app.client_messaging_block(c.id) IS NULL
          JOIN app.debtors dr ON dr.id = d.debtor_id AND dr.status = 'active'
          LEFT JOIN app.follow_up_rules r ON r.client_id = d.client_id
         WHERE d.status IN ('open', 'in_follow_up', 'partly_paid')

@@ -430,3 +430,65 @@ export interface LegalStatusInput {
   najiz_request_number?: string;
   note?: string;
 }
+
+// ---------------------------------------------------------------- sign-up and onboarding (7.5)
+
+/** The three plans on the website (Phase 7). */
+export type PlanKey = 'follow_up' | 'legal' | 'najiz';
+export type BillingPeriod = 'monthly' | 'yearly';
+
+export interface SignUpInput {
+  full_name: string;
+  phone: string;
+  email: string;
+  password: string;
+  /** Exactly as on the commercial registration. */
+  legal_name: string;
+  cr_number: string;
+  plan: PlanKey;
+  period: BillingPeriod;
+  /** The person agreed to the terms of use (the API records which version and when). */
+  accepted_terms: boolean;
+}
+
+export type OnboardingStep = 'company' | 'owner' | 'bank' | 'authorization' | 'rules' | 'debtors';
+export type OnboardingFileKind = 'cr' | 'establishment_contract' | 'iban_letter' | 'authorization';
+
+export interface FileLite {
+  name: string;
+  size_bytes: string;
+  uploaded_at: string;
+}
+
+/** Where a new company stands in setting up. Only the last four digits of the owner's ID ever reach the browser. */
+export interface Onboarding {
+  steps: { key: OnboardingStep; done: boolean; required: boolean }[];
+  /** onboarding until the needed steps are done, then active. */
+  status: 'onboarding' | 'active' | 'suspended' | 'closed';
+  plan: PlanKey;
+  period: BillingPeriod;
+  /** Null once the company pays. */
+  trial_ends_at: string | null;
+  company: {
+    legal_name: string;
+    cr_number: string;
+    trade_name: string | null;
+    unified_number: string | null;
+    sector: 'logistics' | 'labor_services' | 'construction' | 'other';
+    activity: string | null;
+    vat_number: string | null;
+    cr_file: FileLite | null;
+    contract_file: FileLite | null;
+  };
+  owner: { name: string; phone: string; email: string; id_type: 'national_id' | 'iqama' | null; id_last4: string | null };
+  bank: { bank_name: string | null; iban: string | null; letter: FileLite | null };
+  authorization: { file: FileLite | null; signed_at: string | null };
+  debtors: number;
+}
+
+export type OnboardingInput =
+  | { step: 'company'; trade_name: string; unified_number: string; sector: Onboarding['company']['sector']; activity: string; vat_number: string }
+  | { step: 'owner'; name: string; id_type: 'national_id' | 'iqama'; id_number?: string; phone: string; email: string }
+  | { step: 'bank'; bank_name: string; iban: string }
+  | { step: 'rules' }
+  | { step: 'debtors' };

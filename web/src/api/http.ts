@@ -6,8 +6,9 @@
  * request forgery protection).
  */
 import { ApiError, type DataSource, type DebtQuery } from './source';
+import authLetter from '../assets/authorization-letter.docx?url';
 import noteTemplate from '../assets/promissory-note-template.docx?url';
-import type { DocumentInfo, ImportReport, LegalCaseDetail, LegalRow, NajizRun } from './types';
+import type { DocumentInfo, ImportReport, LegalCaseDetail, LegalRow, NajizRun, Onboarding } from './types';
 
 /** Called when the session ends (401), so the app can show the login page. */
 let onSessionEnded: () => void = () => undefined;
@@ -36,7 +37,9 @@ async function request<T>(method: string, url: string, body?: unknown, opts: { a
   if (!res.ok) {
     if (res.status === 401 && opts.auth !== false) onSessionEnded();
     const fields = Array.isArray(data.errors) ? (data.errors as { field: string; message: string }[]) : [];
-    throw new ApiError(res.status, String(data.error ?? 'error'), String(data.message ?? fields[0]?.message ?? 'Something went wrong'), fields);
+    // A refused form names its first problem in plain words, without the field's code name.
+    const message = data.error === 'bad_request' && fields[0] ? fields[0].message : (data.message ?? fields[0]?.message);
+    throw new ApiError(res.status, String(data.error ?? 'error'), String(message ?? 'Something went wrong'), fields);
   }
   return data as T;
 }
@@ -57,6 +60,18 @@ export const httpSource: DataSource = {
   logout: async () => {
     await request('POST', '/api/auth/logout', undefined, { auth: false });
   },
+  signUp: async (input) => {
+    await request('POST', '/api/signup', input, { auth: false });
+  },
+  onboarding: async () => (await request<{ onboarding: Onboarding }>('GET', '/api/onboarding')).onboarding,
+  saveOnboarding: async ({ step, ...body }) => (await request<{ onboarding: Onboarding }>('PATCH', `/api/onboarding/${step}`, body)).onboarding,
+  uploadOnboardingFile: async (kind, file) => {
+    const form = new FormData();
+    form.append('kind', kind);
+    form.append('file', file, file.name);
+    return (await request<{ onboarding: Onboarding }>('POST', '/api/onboarding/files', form)).onboarding;
+  },
+  authorizationTemplateUrl: () => authLetter,
   forgotPassword: async (email) => {
     await request('POST', '/api/auth/forgot', { email }, { auth: false });
   },

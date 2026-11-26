@@ -26,12 +26,12 @@ VALUES ('00000000-0000-4000-8000-000000000001', 'TEST_PHONE_NUMBER_ID', 'TEST_WA
 -- ---------------------------------------------------------------------
 INSERT INTO app.clients (id, legal_name, trade_name, cr_number, sector, activity,
                          owner_name, owner_phone, owner_email, iban, bank_name, plan,
-                         sender_number_id, authorization_signed_at, status)
+                         sender_number_id, authorization_signed_at, status, billing_status)
 VALUES ('11111111-1111-4111-8111-111111111111',
         'مؤسسة النخبة التجريبية للتوصيل', 'Al Nokhba Demo Delivery', '0000000001', 'logistics',
         'Last-mile delivery', 'Demo Owner', '+966500000100', 'owner@demo.example',
-        'SA0000000000000000000000', 'Demo Bank', 'trial',
-        '00000000-0000-4000-8000-000000000001', now(), 'active');
+        'SA0000000000000000000000', 'Demo Bank', 'legal',
+        '00000000-0000-4000-8000-000000000001', now(), 'active', 'active');
 
 -- Najiz details for the client (fake values; 0008).
 UPDATE app.clients SET owner_id_type = 'national_id', owner_id_number = '1000000100',

@@ -1796,3 +1796,804 @@ input[type='time'] {
 .check-list .run-state {
   flex-wrap: wrap;
 }
+
+/* ------------------------------------------------ sign-up and onboarding (7.5) */
+.auth-card-wide {
+  max-inline-size: 560px;
+}
+.auth-new {
+  margin-block-start: var(--space-4);
+  text-align: center;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+.signup .form-section {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.signup .form-section + .form-section {
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--line);
+}
+.signup legend {
+  font-weight: 600;
+  margin-block-end: var(--space-2);
+}
+.period-pick {
+  --at: 0;
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  justify-self: start;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+/* The thumb slides under the chosen label. */
+.period-pick::before {
+  content: '';
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-start: calc(4px + var(--at) * (100% - 8px) / 2);
+  inline-size: calc((100% - 8px) / 2);
+  border-radius: var(--radius-pill);
+  background: var(--navy-900);
+  transition: inset-inline-start 0.32s var(--ease);
+}
+.period-pick label {
+  position: relative;
+  z-index: 1;
+  padding: 6px 18px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: center;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.period-pick input {
+  position: absolute;
+  opacity: 0;
+  inline-size: 1px;
+  block-size: 1px;
+}
+.period-pick label:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+}
+.period-pick .is-on {
+  color: #fff;
+}
+.signup-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+.signup-points li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.signup-points svg {
+  color: var(--accent-ink);
+}
+
+.trial-chip {
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.setup-progress {
+  display: grid;
+  gap: var(--space-2);
+  margin-block-end: var(--space-5);
+}
+.setup-progress-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.setup-bar {
+  block-size: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+  overflow: hidden;
+}
+.setup-bar span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: inline-size 0.3s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .setup-bar span {
+    transition: none;
+  }
+}
+.setup {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.setup-steps ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.setup-step {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--ink);
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+.setup-step:hover {
+  background: var(--panel-sunken);
+}
+.setup-step.is-on {
+  background: var(--panel);
+  border-color: var(--line);
+  box-shadow: var(--shadow-1);
+}
+.setup-step-icon {
+  display: grid;
+  place-items: center;
+  inline-size: 34px;
+  block-size: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--panel-sunken);
+  color: var(--ink-2);
+}
+.setup-step.is-done .setup-step-icon {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.setup-step-text {
+  display: grid;
+}
+.setup-step-text span {
+  font-weight: 600;
+}
+.setup-step-text small {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+.setup-panel .panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.setup-form {
+  display: grid;
+  gap: var(--space-4);
+}
+.setup-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+.setup-facts {
+  margin: 0;
+}
+.setup-files {
+  display: grid;
+  gap: var(--space-2);
+}
+.setup-file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 12px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+}
+.setup-file.has-file {
+  border-style: solid;
+  border-color: var(--line);
+  background: var(--panel-sunken);
+}
+.setup-file-icon {
+  color: var(--ink-3);
+}
+.setup-file.has-file .setup-file-icon {
+  color: var(--accent-ink);
+}
+.setup-file-text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+  font-size: var(--text-sm);
+}
+.setup-how {
+  margin: 0;
+  padding-inline-start: 1.3em;
+  display: grid;
+  gap: var(--space-1);
+  color: var(--ink-2);
+}
+.setup-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.setup-choice {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--panel);
+}
+.setup-choice:hover {
+  border-color: var(--accent);
+}
+.setup-choice svg {
+  color: var(--accent-ink);
+}
+.setup-done {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-6);
+  text-align: center;
+}
+.setup-done > svg {
+  color: var(--accent);
+}
+.setup-left {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  color: var(--ink-2);
+}
+.setup-left li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.setup-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin-block-end: var(--space-5);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 500;
+}
+@media (max-width: 860px) {
+  .setup {
+    grid-template-columns: 1fr;
+  }
+  .setup-steps ol {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .setup-choices {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ------------------------------------------------- sign-up step 1: the plans */
+
+.choose {
+  min-block-size: 100dvh;
+  background: var(--canvas);
+}
+.choose-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-inline-size: 1120px;
+  margin-inline: auto;
+  padding: var(--space-4) var(--space-5);
+}
+.choose-main {
+  max-inline-size: 1120px;
+  margin-inline: auto;
+  padding: var(--space-2) var(--space-5) var(--space-7);
+}
+.choose-step {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent-ink);
+}
+.choose-title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  line-height: 1.25;
+}
+.choose-lead {
+  margin: var(--space-2) 0 0;
+  max-inline-size: 62ch;
+  color: var(--ink-2);
+}
+.choose-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  margin-block: var(--space-5) var(--space-4);
+}
+.plan-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: stretch;
+}
+.plan-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  cursor: pointer;
+  transition: box-shadow 0.15s var(--ease), background 0.15s var(--ease);
+}
+.plan-card:hover {
+  box-shadow: inset 0 0 0 1px var(--ink-3);
+}
+.plan-card:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+.plan-card.is-on {
+  box-shadow: inset 0 0 0 2px var(--accent), var(--shadow-2);
+  background: var(--panel-raised);
+}
+.plan-card-legal.is-on {
+  box-shadow: inset 0 0 0 2px var(--magenta-500), var(--shadow-2);
+}
+.plan-card input {
+  position: absolute;
+  opacity: 0;
+  inline-size: 1px;
+  block-size: 1px;
+}
+.plan-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.plan-radio {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--line-strong);
+  color: #fff;
+}
+.plan-card.is-on .plan-radio {
+  background: var(--action);
+  box-shadow: none;
+}
+.plan-card-legal.is-on .plan-radio {
+  background: var(--magenta-600);
+}
+.plan-card-name {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+.plan-card-state {
+  margin-inline-start: auto;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.plan-card-state.is-on {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+.plan-card-legal .plan-card-state.is-on {
+  color: var(--magenta-600);
+  background: var(--magenta-100);
+}
+.plan-card-for {
+  color: var(--ink-2);
+}
+.plan-card-debtors {
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+.plan-card-label {
+  margin-block-start: var(--space-2);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--line);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.plan-card-features {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.plan-card-features li {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 8px;
+  align-items: start;
+  color: var(--ink-2);
+}
+.plan-card-features svg {
+  margin-block-start: 3px;
+  color: var(--accent-ink);
+}
+.plan-card-features li.is-new {
+  color: var(--ink);
+  font-weight: 600;
+}
+.plan-card-legal .plan-card-features li.is-new svg {
+  color: var(--magenta-600);
+}
+.plan-card-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-block-start: auto;
+  padding-block-start: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+.choose-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-block-start: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.choose .auth-new {
+  margin-block-start: var(--space-5);
+}
+.choose-points-phone {
+  display: none;
+  margin-block-start: var(--space-3);
+}
+@media (max-width: 900px) {
+  .choose-points-phone {
+    display: flex;
+  }
+  .choose-foot .signup-points {
+    display: none;
+  }
+  .choose-foot {
+    padding: var(--space-3);
+  }
+  .plan-cards {
+    grid-template-columns: 1fr;
+  }
+  .choose-foot {
+    position: sticky;
+    inset-block-end: var(--space-3);
+    box-shadow: inset 0 0 0 1px var(--line), var(--shadow-2);
+  }
+  .choose-foot .btn {
+    inline-size: 100%;
+  }
+}
+
+/* ---------------------------------------------- sign-up step 2: the account */
+
+.plan-chosen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.plan-chosen-legal {
+  background: var(--magenta-100);
+  box-shadow: inset 0 0 0 1px var(--magenta-500);
+}
+.plan-chosen > span {
+  display: grid;
+}
+.plan-chosen-label {
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+.card-later {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--panel-sunken);
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+.card-later p {
+  margin: 0;
+  line-height: 1.55;
+}
+.card-later svg {
+  color: var(--accent-ink);
+  margin-block-start: 1px;
+}
+.accept {
+  display: grid;
+  gap: var(--space-1);
+}
+
+/* ------------------------------------------- sign-up: the path of a debt */
+
+.plan-track {
+  --at: 1;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  block-size: 44px;
+  margin-block-end: var(--space-3);
+}
+.plan-track-line,
+.plan-track-fill {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: calc(100% / 6);
+  block-size: 2px;
+  margin-block-start: -1px;
+  border-radius: 2px;
+}
+.plan-track-line {
+  inline-size: calc(100% * 2 / 3);
+  background: repeating-linear-gradient(90deg, var(--line-strong) 0 6px, transparent 6px 12px);
+}
+.plan-track-fill {
+  inline-size: calc(var(--at) * 100% / 3);
+  background: var(--accent);
+  transition: inline-size 0.55s var(--ease);
+  animation: track-draw 0.9s var(--ease) 0.15s backwards;
+}
+@keyframes track-draw {
+  from {
+    inline-size: 0;
+  }
+}
+.plan-track-node {
+  position: relative;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink-3);
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+  transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, transform 0.3s var(--ease);
+}
+.plan-track-node.is-lit {
+  background: var(--action);
+  color: #fff;
+  box-shadow: 0 0 0 5px var(--accent-soft);
+  /* Each node lights as the line reaches it when the page opens. */
+  animation: node-on 0.4s var(--ease) backwards;
+  animation-delay: calc(0.1s + var(--i) * 0.3s);
+}
+.plan-track-node.is-lit.is-legal {
+  background: var(--magenta-600);
+  box-shadow: 0 0 0 5px var(--magenta-100);
+}
+@keyframes node-on {
+  from {
+    background: var(--panel);
+    color: var(--ink-3);
+    box-shadow: inset 0 0 0 1.5px var(--line-strong);
+    transform: scale(0.85);
+  }
+}
+.plan-card {
+  transition: box-shadow 0.25s ease, background 0.25s ease, transform 0.25s var(--ease);
+}
+.plan-card.is-on {
+  transform: translateY(-2px);
+}
+/* The check in the chosen plan draws itself. */
+.plan-card.is-on .plan-radio {
+  animation: radio-on 0.3s var(--ease);
+}
+.plan-card.is-on .plan-radio path {
+  stroke-dasharray: 24;
+  animation: check-draw 0.35s ease-out 0.1s backwards;
+}
+@keyframes radio-on {
+  from {
+    transform: scale(0.6);
+  }
+}
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+}
+@media (max-width: 900px) {
+  .plan-track {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------ setup: progress and motion */
+
+.setup-segments {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.setup-segments li {
+  position: relative;
+  block-size: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+  overflow: hidden;
+}
+/* Needed steps carry a small notch until they are done. */
+.setup-segments li.is-needed::after {
+  content: '';
+  position: absolute;
+  inset-block: 2px;
+  inset-inline-start: 3px;
+  inline-size: 4px;
+  border-radius: 50%;
+  background: var(--amber-500);
+}
+.setup-segments li::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--action);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+:dir(rtl) .setup-segments li::before {
+  transform-origin: right;
+}
+.setup-segments li.is-done::before {
+  transform: scaleX(1);
+}
+.setup-segments li.is-done::after {
+  display: none;
+}
+.setup-segments li.is-new::before {
+  animation: segment-fill 0.6s var(--ease) both;
+}
+@keyframes segment-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* A step just finished: its check settles in. */
+.setup-step.is-new .setup-step-icon {
+  animation: step-done 0.5s var(--ease);
+}
+@keyframes step-done {
+  0% {
+    transform: scale(0.7);
+    box-shadow: 0 0 0 0 var(--accent-soft);
+  }
+  60% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 8px var(--accent-soft);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Each step's content comes in from the reading direction. */
+.setup-stage {
+  animation: stage-in 0.32s var(--ease);
+}
+@keyframes stage-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+:dir(rtl) .setup-stage {
+  animation-name: stage-in-rtl;
+}
+@keyframes stage-in-rtl {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+
+/* The last panel: the check draws itself. */
+.done-mark {
+  inline-size: 64px;
+  block-size: 64px;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.done-mark circle {
+  stroke: var(--accent-soft);
+  stroke-width: 3;
+}
+.done-mark path {
+  stroke: var(--line-strong);
+  stroke-width: 4;
+}
+.setup-done.is-ready .done-mark circle {
+  stroke: var(--action);
+  stroke-dasharray: 100;
+  animation: mark-draw 0.7s var(--ease) 0.1s backwards;
+}
+.setup-done.is-ready .done-mark path {
+  stroke: var(--action);
+  stroke-dasharray: 100;
+  animation: mark-draw 0.45s ease-out 0.7s backwards;
+}
+@keyframes mark-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+}

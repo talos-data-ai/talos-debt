@@ -20,6 +20,8 @@ export function parseOr400<T extends z.ZodType>(
     void reply.code(400).send({
       error: 'bad_request',
       message: result.error.issues.map((i) => `${i.path.join('.') || 'input'}: ${i.message}`).join('; '),
+      // The same, field by field, so a form can show each message next to its field.
+      errors: result.error.issues.map((i) => ({ field: i.path.join('.') || 'input', message: i.message })),
     });
     return undefined;
   }

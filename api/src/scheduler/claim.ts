@@ -20,7 +20,8 @@ export interface ClaimedTask {
  *
  * Reminders are only taken when WhatsApp sending is set up (`canSend`), and
  * only for clients with auto_send on, or when a staff member approved them.
- * Suspended or closed clients get nothing.
+ * Suspended or closed clients get nothing, and no reminder is taken for a
+ * company that may not message its debtors now (setup, trial or payment, 0010).
  */
 export async function claimTasks(
   workerPool: pg.Pool,
@@ -34,7 +35,8 @@ export async function claimTasks(
          LEFT JOIN app.follow_up_rules r ON r.client_id = t.client_id
         WHERE t.status = 'pending' AND t.due_at <= $1
           AND (t.task_type <> 'send_reminder'
-               OR ($3 AND (coalesce(r.auto_send, false) OR t.approved_at IS NOT NULL)))
+               OR ($3 AND (coalesce(r.auto_send, false) OR t.approved_at IS NOT NULL)
+                      AND app.client_messaging_block(c.id) IS NULL))
         ORDER BY t.due_at
         LIMIT $2
         FOR UPDATE OF t SKIP LOCKED

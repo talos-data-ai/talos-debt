@@ -12,6 +12,7 @@ import { ChromiumPdfRenderer, type PdfRenderer } from './legal/pdf.js';
 import { UPLOAD_LIMITS } from './routes/upload.js';
 import { najizRoutes } from './routes/najiz.js';
 import { contactRoutes } from './routes/contact.js';
+import { onboardingRoutes, signUpRoutes } from './routes/onboarding.js';
 import { LocalDiskStorage, type FileStorage } from './storage/storage.js';
 import { messageRoutes } from './routes/messages.js';
 import { paymentRoutes } from './routes/payments.js';
@@ -45,6 +46,8 @@ export interface AppDeps {
   loginLimiter?: RateLimiter;
   /** Contact form limiter (website). */
   contactLimiter?: RateLimiter;
+  /** Sign-up limiter, per address. */
+  signUpLimiter?: RateLimiter;
 }
 
 export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): FastifyInstance {
@@ -85,6 +88,7 @@ export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): Fas
   const mailer = deps.mailer ?? createMailer(config);
   app.register(async (open) => {
     loginRoutes(open, { pool, config, mailer, limiter: deps.loginLimiter });
+    signUpRoutes(open, { pool, config, limiter: deps.signUpLimiter });
   });
 
   // The website's contact form: no login, its own body parser, emailed to Talos.
@@ -106,6 +110,7 @@ export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): Fas
     enforceabilityRoutes(api, { pool, config });
     legalRoutes(api, { pool, storage, pdf });
     najizRoutes(api, pool);
+    onboardingRoutes(api, { pool, storage });
   });
 
   // Meta's webhook: no user login; requests are checked by signature instead.

@@ -16,6 +16,11 @@ const BLOCKED_STATUS: Record<SendBlocked['code'], number> = {
   outside_working_hours: 409,
   no_template: 409,
   not_configured: 503,
+  setup_not_finished: 409,
+  account_not_active: 409,
+  no_authorization: 409,
+  payment_needed: 402,
+  trial_ended: 402,
 };
 
 /** Manual sending by staff from the dashboard. */
