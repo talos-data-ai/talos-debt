@@ -92,12 +92,13 @@ export interface Copy {
     trial: string;
     founding: string;
     noSetup: string;
+    cancel: string;
     tiers: { name: string; for: string; features: string[] }[];
     faq: { q: string; a: string }[];
   };
   thanks: { title: string; text: string; back: string };
   sorry: { title: string; text: string; back: string };
-  footer: { about: string; company: string; place: string; facts: string; rights: string; terms: string; privacy: string };
+  footer: { about: string; company: string; place: string; facts: string; rights: string; terms: string; privacy: string; refunds: string };
 }
 
 export const en: Copy = {
@@ -366,6 +367,7 @@ export const en: Copy = {
     trial: '14 days free on every plan',
     founding: 'The first 10 companies get their first month free',
     noSetup: 'No setup fee',
+    cancel: 'Cancel any time from your account; you keep the service until the end of the period you paid for.',
     tiers: [
       {
         name: 'Follow-up',
@@ -438,6 +440,7 @@ export const en: Copy = {
     rights: 'All rights reserved.',
     terms: 'Terms of use',
     privacy: 'Privacy policy',
+    refunds: 'Refunds and cancellation',
   },
 };
 
@@ -705,6 +708,7 @@ export const ar: Copy = {
     trial: '14 يوماً مجاناً في كل باقة',
     founding: 'أول 10 شركات تحصل على الشهر الأول مجاناً',
     noSetup: 'دون رسوم تأسيس',
+    cancel: 'يمكنك الإلغاء في أي وقت من حسابك، وتبقى الخدمة متاحة حتى نهاية المدة التي دفعت عنها.',
     tiers: [
       {
         name: 'المتابعة',
@@ -777,6 +781,7 @@ export const ar: Copy = {
     rights: 'جميع الحقوق محفوظة.',
     terms: 'شروط الاستخدام',
     privacy: 'سياسة الخصوصية',
+    refunds: 'الاسترداد والإلغاء',
   },
 };
 
