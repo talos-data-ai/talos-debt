@@ -28,7 +28,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copies, type Copy, type Lang } from './content.js';
 import { icons, logo } from './icons.js';
-import { LEGAL_REVIEWED, LEGAL_UPDATED, legalCopies, type Block, type LegalPage } from './legal.js';
+import { LEGAL_KINDS, LEGAL_REVIEWED, LEGAL_UPDATED, REVIEWED, legalCopies, type Block, type LegalKind, type LegalPage } from './legal.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -110,12 +110,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     if (!env.LEGAL_NAME || !env.LEGAL_CR || !env.LEGAL_ADDRESS || !env.LEGAL_ADDRESS_AR || !env.PRIVACY_EMAIL) {
       throw new Error('LEGAL_NAME, LEGAL_CR, LEGAL_ADDRESS, LEGAL_ADDRESS_AR and PRIVACY_EMAIL are required in production');
     }
-    if (!LEGAL_REVIEWED) throw new Error('The terms of use and privacy policy are a draft: a lawyer reviews them first (site/src/legal.ts)');
+    if (!LEGAL_REVIEWED) throw new Error(`Legal pages still waiting for the lawyer: ${LEGAL_KINDS.filter((k) => !REVIEWED[k]).join(', ')} (site/src/legal.ts)`);
   }
   return { siteUrl, appUrl, formUrl, whatsapp, phone, pricing, legal };
 }
 
-export type PageKind = 'home' | 'pricing' | 'terms' | 'privacy' | 'thanks' | 'sorry';
+export type PageKind = 'home' | 'pricing' | LegalKind | 'thanks' | 'sorry';
 
 /** The address of a page in a language. Arabic is the root. */
 export function pathOf(lang: Lang, kind: PageKind = 'home'): string {
@@ -312,7 +312,7 @@ ${page.body}
   <div class="wrap foot-in">
     <div><a class="brand" href="${home}">${logo}<span>Talos</span></a><p style="margin-block-start:10px">${isolate(c, c.footer.about)}</p></div>
     <div><p>${isolate(c, c.footer.company)}${c.lang === 'ar' ? '، ' : ', '}${esc(c.footer.place)}</p><p>&copy; ${new Date().getFullYear()} ${isolate(c, c.footer.company)}. ${esc(c.footer.rights)}</p></div>
-    <nav aria-label="${esc(c.footer.facts)}"><a href="${pathOf(c.lang, 'pricing')}">${esc(c.nav.pricing)}</a><a href="${pathOf(c.lang, 'terms')}"${page.kind === 'terms' ? ' aria-current="page"' : ''}>${esc(c.footer.terms)}</a><a href="${pathOf(c.lang, 'privacy')}"${page.kind === 'privacy' ? ' aria-current="page"' : ''}>${esc(c.footer.privacy)}</a><a href="${otherHref}" hreflang="${other}" lang="${other}">${esc(c.nav.other)}</a><a href="/llms.txt">${esc(c.footer.facts)}</a></nav>
+    <nav aria-label="${esc(c.footer.facts)}"><a href="${pathOf(c.lang, 'pricing')}">${esc(c.nav.pricing)}</a><a href="${pathOf(c.lang, 'terms')}"${page.kind === 'terms' ? ' aria-current="page"' : ''}>${esc(c.footer.terms)}</a><a href="${pathOf(c.lang, 'privacy')}"${page.kind === 'privacy' ? ' aria-current="page"' : ''}>${esc(c.footer.privacy)}</a><a href="${pathOf(c.lang, 'refunds')}"${page.kind === 'refunds' ? ' aria-current="page"' : ''}>${esc(c.footer.refunds)}</a><a href="${otherHref}" hreflang="${other}" lang="${other}">${esc(c.nav.other)}</a><a href="/llms.txt">${esc(c.footer.facts)}</a></nav>
   </div>
 </footer>
 </body>
@@ -496,7 +496,8 @@ export function legalDate(lang: Lang, iso: string): string {
 }
 
 /** The terms of use or the privacy policy, with Talos's details from the settings. */
-function legalBody(c: Copy, cfg: SiteConfig, page: LegalPage): string {
+function legalBody(c: Copy, cfg: SiteConfig, kind: LegalKind): string {
+  const page: LegalPage = legalCopies[c.lang][kind];
   const l = cfg.legal;
   const values: Record<string, string> = {
     entity: `<bdi>${esc(l.name)}</bdi>`,
@@ -504,6 +505,7 @@ function legalBody(c: Copy, cfg: SiteConfig, page: LegalPage): string {
     address: `<bdi>${esc(c.lang === 'ar' ? l.addressAr : l.address)}</bdi>`,
     email: `<a href="mailto:${esc(l.email)}"><bdi>${esc(l.email)}</bdi></a>`,
     pricing: `<a href="${pathOf(c.lang, 'pricing')}"><bdi>${esc(cfg.siteUrl.replace(/^https?:\/\//, '') + pathOf(c.lang, 'pricing'))}</bdi></a>`,
+    refunds: `<a href="${pathOf(c.lang, 'refunds')}">${esc(legalCopies[c.lang].refunds.title)}</a>`,
     date: esc(legalDate(c.lang, LEGAL_UPDATED)),
   };
   // Only the words are isolated; each setting goes in whole, in its own direction.
@@ -517,7 +519,7 @@ function legalBody(c: Copy, cfg: SiteConfig, page: LegalPage): string {
       })
       .join('');
   const block = (b: Block) => (typeof b === 'string' ? `<p>${fill(b)}</p>` : `<ul>${b.list.map((x) => `<li>${fill(x)}</li>`).join('')}</ul>`);
-  const draft = LEGAL_REVIEWED ? '' : `<p class="draft-note" role="note">${esc(legalCopies[c.lang].draft)}</p>`;
+  const draft = REVIEWED[kind] ? '' : `<p class="draft-note" role="note">${esc(legalCopies[c.lang].draft)}</p>`;
   return `<section class="hero hero-small" aria-labelledby="legal-title">
   <div class="wrap">
     ${draft}
@@ -586,6 +588,7 @@ function pricingBody(c: Copy, cfg: SiteConfig): string {
       <div class="plans">${cards}</div>
     </div>
     <p class="plans-note">${esc(pr.newHint)} ${esc(pr.moreDebtors)} ${p ? esc(p.vat === 'included' ? pr.vatIncluded : pr.vatExcluded) : ''}</p>
+    <p class="plans-note">${esc(pr.cancel)} <a href="${pathOf(c.lang, 'refunds')}">${esc(legalCopies[c.lang].refunds.title)}</a></p>
   </div>
 </section>
 <section class="section how" aria-labelledby="pfaq-title">
@@ -619,12 +622,12 @@ export function renderPage(c: Copy, cfg: SiteConfig, css: string, kind: PageKind
           index: true,
           data: [organization(cfg), product(c, cfg), faqData(c, c.pricing.faq)],
         }
-      : kind === 'terms' || kind === 'privacy'
+      : kind === 'terms' || kind === 'privacy' || kind === 'refunds'
         ? {
             kind,
             title: legalCopies[c.lang][kind].meta.title,
             description: legalCopies[c.lang][kind].meta.description,
-            body: legalBody(c, cfg, legalCopies[c.lang][kind]),
+            body: legalBody(c, cfg, kind),
             index: true,
             data: [organization(cfg)],
           }
@@ -688,7 +691,7 @@ ${[...c.faq.items, ...pr.faq].map((x) => `### ${x.q}\n\n${x.a}`).join('\n\n')}
 
 - [${c.product}, in English](${cfg.siteUrl}/en/)
 - [Pricing, in English](${cfg.siteUrl}/en/pricing/)
-- [Terms of use](${cfg.siteUrl}/en/terms/) and [privacy policy](${cfg.siteUrl}/en/privacy/), in English
+- [Terms of use](${cfg.siteUrl}/en/terms/), [privacy policy](${cfg.siteUrl}/en/privacy/) and [refund and cancellation policy](${cfg.siteUrl}/en/refunds/), in English
 - [${copies.ar.product}، بالعربية](${cfg.siteUrl}/)
 - [الأسعار، بالعربية](${cfg.siteUrl}/pricing/)
 `;
@@ -696,7 +699,7 @@ ${[...c.faq.items, ...pr.faq].map((x) => `### ${x.q}\n\n${x.a}`).join('\n\n')}
 
 export function sitemap(cfg: SiteConfig): string {
   const today = new Date().toISOString().slice(0, 10);
-  const entries = (['home', 'pricing', 'terms', 'privacy'] as const).flatMap((kind) => {
+  const entries = (['home', 'pricing', ...LEGAL_KINDS] as const).flatMap((kind) => {
     const alt = `<xhtml:link rel="alternate" hreflang="ar" href="${cfg.siteUrl}${pathOf('ar', kind)}"/><xhtml:link rel="alternate" hreflang="en" href="${cfg.siteUrl}${pathOf('en', kind)}"/><xhtml:link rel="alternate" hreflang="x-default" href="${cfg.siteUrl}${pathOf('ar', kind)}"/>`;
     return (['ar', 'en'] as const).map((lang) => `<url><loc>${cfg.siteUrl}${pathOf(lang, kind)}</loc><lastmod>${today}</lastmod>${alt}</url>`);
   });
@@ -707,7 +710,7 @@ ${entries.join('\n')}
 `;
 }
 
-export const PAGES: PageKind[] = ['home', 'pricing', 'terms', 'privacy', 'thanks', 'sorry'];
+export const PAGES: PageKind[] = ['home', 'pricing', ...LEGAL_KINDS, 'thanks', 'sorry'];
 
 export function build(cfg = loadConfig()) {
   rmSync(dist, { recursive: true, force: true });

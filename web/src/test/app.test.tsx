@@ -7,7 +7,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../App';
-import { demoSource } from '../api/demo';
+import { demoBilling, demoSource } from '../api/demo';
 import { ApiError, type DataSource } from '../api/source';
 import type { Me } from '../api/types';
 import { cleanAmount } from '../components/actions';
@@ -18,6 +18,7 @@ import { en as enText } from '../i18n/en';
 import { notificationLink, notificationText } from '../lib/notifications';
 import { NEW_IN_PLAN } from '../lib/plans';
 import { safeNext } from '../pages/Auth';
+import { luhnOk } from '../pages/Billing';
 
 const en = (k: Parameters<typeof translate>[1], v?: Record<string, string | number>) => translate('en', k, v);
 const ar = (k: Parameters<typeof translate>[1], v?: Record<string, string | number>) => translate('ar', k, v);
@@ -930,5 +931,91 @@ describe('sign-up and onboarding (7.5)', () => {
     await user.click(await screen.findByRole('link', { name: ar('welcome.bannerCta') }));
     expect(await screen.findByRole('heading', { name: ar('welcome.title') })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: ar('welcome.bannerCta') })).not.toBeInTheDocument();
+  });
+});
+
+// ------------------------------------------------------------ billing (7.6)
+
+describe('billing (7.6)', () => {
+  it('a mistyped card number is caught before the card leaves the page', () => {
+    expect(luhnOk('4111111111111111')).toBe(true);
+    expect(luhnOk('4201320111111010')).toBe(true);
+    expect(luhnOk('4111111111111112')).toBe(false);
+    expect(luhnOk('4111')).toBe(false);
+  });
+
+  it('billing is a Settings tab for owners and admins only', async () => {
+    demoBilling.set('active', false);
+    renderAt('/settings/billing');
+    expect(await screen.findByText(en('billing.ownersOnly'))).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: en('settings.tab.billing') })).not.toBeInTheDocument();
+  });
+
+  for (const lang of ['en', 'ar'] as const) {
+    const tr = lang === 'en' ? en : ar;
+    it(`during the trial the owner adds a card: checked on the page, then confirmed with the bank (${lang})`, async () => {
+      demoBilling.set('trial');
+      const user = userEvent.setup();
+      renderAt('/settings/billing', demoSource, lang);
+      expect(await screen.findByText(tr('billing.card.none'))).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: tr('settings.tab.billing') })).toHaveAttribute('aria-selected', 'true');
+      await user.click(screen.getByRole('button', { name: tr('billing.card.add') }));
+      await user.click(screen.getByRole('button', { name: tr('billing.form.submit') }));
+      expect(await screen.findByText(tr('billing.form.badNumber'))).toBeInTheDocument();
+      expect(screen.getByText(tr('billing.form.badExpiry'))).toBeInTheDocument();
+
+      await user.type(screen.getByLabelText(tr('billing.form.name')), 'Khalid Al Nokhba');
+      await user.type(screen.getByLabelText(tr('billing.form.number')), '4111111111111111');
+      await user.type(screen.getByLabelText(tr('billing.form.expiry')), '1230');
+      await user.type(screen.getByLabelText(tr('billing.form.cvc')), '123');
+      await user.click(screen.getByRole('button', { name: tr('billing.form.submit') }));
+      // Back from the bank: the card is saved, nothing charged during the trial.
+      expect(await screen.findByRole('img', { name: tr('billing.card.ending', { last4: '1111' }) })).toBeInTheDocument();
+      expect(await screen.findByText(tr('billing.cardSaved'))).toBeInTheDocument();
+      expect(demoBilling.state.charges).toHaveLength(0);
+    });
+  }
+
+  it('when a payment failed, every page says Talos stopped, and the owner can pay at once', async () => {
+    demoBilling.set('unpaid');
+    const user = userEvent.setup();
+    renderAt('/');
+    const banner = await screen.findByRole('alert');
+    expect(banner).toHaveTextContent(en('billing.banner.payment_needed'));
+    await user.click(within(banner).getByRole('link', { name: en('billing.banner.cta') }));
+    const pay = await screen.findByRole('button', { name: en('billing.payNow', { amount: en('money.amount', { amount: '115.00' }) }) });
+    await user.click(pay);
+    expect(await screen.findByText(en('billing.paid'))).toBeInTheDocument();
+    expect(await screen.findByText(en('billing.status.active'))).toBeInTheDocument();
+  });
+
+  it('others are told to ask the owner, with no button', async () => {
+    demoBilling.set('unpaid');
+    renderAt('/', withRole('staff'), 'ar');
+    const banner = await screen.findByRole('alert');
+    expect(banner).toHaveTextContent(ar('billing.banner.askOwner'));
+    expect(within(banner).queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('cancelling asks first, keeps the service to the end of the period, and can be undone', async () => {
+    demoBilling.set('active');
+    const user = userEvent.setup();
+    renderAt('/settings/billing', demoSource, 'ar');
+    await user.click(await screen.findByRole('button', { name: ar('billing.cancel.title') }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: ar('billing.cancel.confirm') }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    const keep = await screen.findByRole('button', { name: ar('billing.keep') });
+    expect(demoBilling.state.cancel_at_period_end).toBe(true);
+    await user.click(keep);
+    expect(await screen.findByText(ar('billing.cancel.undone'))).toBeInTheDocument();
+    expect(demoBilling.state.cancel_at_period_end).toBe(false);
+  });
+
+  it('billing notifications read in both languages and lead to billing', () => {
+    const n = { id: 'b1', kind: 'system' as const, title: 'x', target_table: 'billing', target_id: null, read_at: null, created_at: '2026-11-26T10:00:00Z', data: { event: 'billing_paid' as const, amount: '1150.00' } };
+    expect(notificationText(n, (k, v) => translate('en', k, v))).toBe(en('note.billing_paid', { amount: '1,150' }));
+    expect(notificationText(n, (k, v) => translate('ar', k, v))).toBe(ar('note.billing_paid', { amount: '1,150' }));
+    expect(notificationLink(n)).toBe('/settings/billing');
   });
 });

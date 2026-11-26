@@ -28,7 +28,7 @@ export { PLANS };
 const SITE = import.meta.env.VITE_SITE_URL ?? 'https://debt.talosksa.com';
 
 /** A page of the public website in the reader's language. */
-export function sitePage(lang: string, page: 'pricing' | 'terms' | 'privacy'): string {
+export function sitePage(lang: string, page: 'pricing' | 'terms' | 'privacy' | 'refunds'): string {
   return `${SITE}${lang === 'en' ? '/en' : ''}/${page}/`;
 }
 

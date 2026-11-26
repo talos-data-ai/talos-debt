@@ -23,7 +23,11 @@ export function dashboardRoutes(app: FastifyInstance, pool: pg.Pool) {
     const user = req.user!;
     return withTenant(pool, tenantOf(user), async (db) => {
       const { rows } = await db.query(
-        `SELECT id, legal_name, trade_name, sector, plan, status FROM app.clients WHERE id = $1`,
+        `SELECT id, legal_name, trade_name, sector, plan, status, billing_status, cancel_at_period_end, paid_until,
+                CASE WHEN trial_ends_at IS NULL THEN NULL ELSE app.free_until(trial_ends_at, founding_member) END AS free_until,
+                app.client_messaging_block(id) AS block,
+                EXISTS (SELECT 1 FROM app.billing_cards WHERE status = 'active') AS has_card
+           FROM app.clients WHERE id = $1`,
         [user.clientId],
       );
       return { user: { id: user.userId, fullName: user.fullName, role: user.role }, client: rows[0] ?? null };

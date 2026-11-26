@@ -229,7 +229,7 @@ const KIND_ICON = {
 } as const;
 
 function Activity() {
-  const { t, relative } = useI18n();
+  const { t, relative, formatDate } = useI18n();
   const notes = useNotifications();
   return (
     <section className="panel activity" aria-labelledby="act-title">
@@ -253,7 +253,7 @@ function Activity() {
             return (
               <li key={n.id} className={n.read_at ? 'feed-row' : 'feed-row feed-unread'}>
                 <Icon size={17} aria-hidden="true" className={`feed-icon kind-${n.kind}`} />
-                <span className="feed-text">{to ? <Link to={to}>{notificationText(n, t)}</Link> : notificationText(n, t)}</span>
+                <span className="feed-text">{to ? <Link to={to}>{notificationText(n, t, formatDate)}</Link> : notificationText(n, t, formatDate)}</span>
                 <time className="feed-time" dateTime={n.created_at}>
                   {relative(n.created_at)}
                 </time>

@@ -12,7 +12,7 @@ import { chromium, type Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { build, formatAmount, legalDate, llmsTxt, loadConfig, parsePricing, planFeatures, renderPage, sitemap, yearlySaving, type SiteConfig } from '../src/build.js';
 import { ar, en, type Copy } from '../src/content.js';
-import { LEGAL_REVIEWED, TERMS_VERSION, legalCopies } from '../src/legal.js';
+import { LEGAL_KINDS, LEGAL_REVIEWED, REVIEWED, TERMS_VERSION, legalCopies } from '../src/legal.js';
 
 const dist = fileURLToPath(new URL('../dist', import.meta.url));
 const page = (path: string) => readFileSync(join(dist, path), 'utf8');
@@ -81,10 +81,10 @@ describe('words', () => {
   });
 });
 
-describe('terms of use and privacy policy', () => {
+describe('terms of use, privacy policy and refund policy', () => {
   it('Arabic and English have the same sections, point for point', () => {
     expect(shape(legalCopies.ar)).toEqual(shape(legalCopies.en));
-    for (const k of ['terms', 'privacy'] as const) {
+    for (const k of LEGAL_KINDS) {
       expect(legalCopies.ar[k].sections.map((x) => x.id)).toEqual(legalCopies.en[k].sections.map((x) => x.id));
     }
   });
@@ -92,7 +92,7 @@ describe('terms of use and privacy policy', () => {
   it('no em dashes, only known settings, and no English left in the Arabic text', () => {
     for (const s of strings(legalCopies, new Set(['id']))) {
       expect(s, s).not.toMatch(/—/);
-      for (const m of s.match(/\{\w+\}/g) ?? []) expect(['{entity}', '{cr}', '{address}', '{email}', '{pricing}', '{date}'], s).toContain(m);
+      for (const m of s.match(/\{\w+\}/g) ?? []) expect(['{entity}', '{cr}', '{address}', '{email}', '{pricing}', '{refunds}', '{date}'], s).toContain(m);
     }
     for (const s of strings(legalCopies.ar, new Set(['id']))) {
       expect(s, 'Arabic text uses « » for quotes').not.toMatch(/"/);
@@ -216,20 +216,25 @@ describe('the built site', () => {
   });
 
 
-  it('the terms and the privacy policy carry Talos\u2019s details from the settings, say they are a draft, and are linked from every page', () => {
+  it('the legal pages carry Talos\u2019s details from the settings, say when they are a draft, and are linked from every page', () => {
     for (const lang of ['ar', 'en'] as const) {
-      for (const k of ['terms', 'privacy'] as const) {
+      for (const k of LEGAL_KINDS) {
         const html = page(`${lang === 'en' ? 'en/' : ''}${k}/index.html`);
         expect(html).toContain('<bdi>Test Establishment</bdi>');
         expect(html).toContain('<bdi class="nb">4030000000</bdi>');
         expect(html).toContain('href="mailto:privacy@site.test"');
-        expect(html).not.toMatch(/\{(entity|cr|address|email|pricing|date)\}/);
+        expect(html).not.toMatch(/\{(entity|cr|address|email|pricing|refunds|date)\}/);
         for (const x of legalCopies[lang][k].sections) expect(html).toContain(`id="${x.id}"`);
-        if (!LEGAL_REVIEWED) expect(html).toContain(legalCopies[lang].draft);
+        if (REVIEWED[k]) expect(html).not.toContain(legalCopies[lang].draft);
+        else expect(html).toContain(legalCopies[lang].draft);
       }
       const home = page(`${lang === 'en' ? 'en/' : ''}index.html`);
       expect(home).toContain(`href="${lang === 'en' ? '/en' : ''}/terms/"`);
       expect(home).toContain(`href="${lang === 'en' ? '/en' : ''}/privacy/"`);
+      expect(home).toContain(`href="${lang === 'en' ? '/en' : ''}/refunds/"`);
+      // The terms point to the refund policy, and so does the pricing page (the payment provider checks it).
+      expect(page(`${lang === 'en' ? 'en/' : ''}terms/index.html`)).toContain(`href="${lang === 'en' ? '/en' : ''}/refunds/">${legalCopies[lang].refunds.title}</a>`);
+      expect(page(`${lang === 'en' ? 'en/' : ''}pricing/index.html`)).toContain(`href="${lang === 'en' ? '/en' : ''}/refunds/"`);
     }
   });
 
@@ -276,7 +281,7 @@ describe('the built site', () => {
   it('a sitemap with both pages in both languages, robots, and plain facts with the plans', () => {
     const map = page('sitemap.xml');
     expect(map).toBe(sitemap(loadConfig(ENV)));
-    for (const u of ['/', '/en/', '/pricing/', '/en/pricing/', '/terms/', '/en/terms/', '/privacy/', '/en/privacy/']) expect(map).toContain(`<loc>https://site.test${u}</loc>`);
+    for (const u of ['/', '/en/', '/pricing/', '/en/pricing/', '/terms/', '/en/terms/', '/privacy/', '/en/privacy/', '/refunds/', '/en/refunds/']) expect(map).toContain(`<loc>https://site.test${u}</loc>`);
     expect(map).not.toContain('thanks');
     expect(page('robots.txt')).toContain('Sitemap: https://site.test/sitemap.xml');
     const llms = page('llms.txt');
@@ -297,8 +302,8 @@ describe('the built site', () => {
     if (LEGAL_REVIEWED) {
       expect(loadConfig({ ...prod, SITE_URL: 'https://debt.talosksa.com/' }).siteUrl).toBe('https://debt.talosksa.com');
     } else {
-      // The terms and the privacy policy are never published before the lawyer has reviewed them.
-      expect(() => loadConfig(prod)).toThrow(/draft/);
+      // The legal pages are never published before the lawyer has reviewed them.
+      expect(() => loadConfig(prod)).toThrow(/waiting for the lawyer/);
     }
   });
 
@@ -338,7 +343,7 @@ describe('in a real browser', () => {
     server?.close();
   });
 
-  for (const path of ['/', '/en/', '/pricing/', '/en/pricing/', '/terms/', '/en/terms/', '/privacy/', '/en/privacy/', '/thanks/', '/en/sorry/']) {
+  for (const path of ['/', '/en/', '/pricing/', '/en/pricing/', '/terms/', '/en/terms/', '/privacy/', '/en/privacy/', '/refunds/', '/en/refunds/', '/thanks/', '/en/sorry/']) {
     for (const width of [1366, 390]) {
       it(`${path} at ${width}px: no accessibility problems, no failed loads, nothing wider than the screen`, async () => {
         const p = await browser.newPage({ viewport: { width, height: 900 } });

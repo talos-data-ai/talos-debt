@@ -127,6 +127,41 @@ export const httpSource: DataSource = {
     return { debtorId: res.debtor.id };
   },
 
+  billing: () => request('GET', '/api/billing'),
+  tokenizeCard: async (gateway, card) => {
+    const body = { ...card, callback_url: gateway.callback_url, metadata: gateway.metadata };
+    if (gateway.provider === 'fake') {
+      // Development only: the API stands in for the provider, with the provider's test cards.
+      const r = await request<{ id: string; verification_url: string }>('POST', gateway.tokens_url, body, { auth: false });
+      return { token: r.id, verifyUrl: r.verification_url };
+    }
+    // Straight to the payment provider with its public key: the card number never reaches Talos.
+    let res: Response;
+    try {
+      res = await fetch(gateway.tokens_url, {
+        method: 'POST',
+        headers: { authorization: `Basic ${btoa(`${gateway.publishable_key}:`)}`, 'content-type': 'application/json', accept: 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify(body),
+      });
+    } catch {
+      throw new ApiError(0, 'network', 'No connection. Check your internet and try again.');
+    }
+    const data = (await res.json().catch(() => ({}))) as { id?: string; verification_url?: string; type?: string; message?: string; errors?: Record<string, string[]> };
+    if (!res.ok || !data.id || !data.verification_url) {
+      const first = data.errors ? Object.entries(data.errors)[0] : undefined;
+      throw new ApiError(res.status, 'card_invalid', first ? `${first[0]}: ${first[1][0]}` : (data.message ?? 'The card was not accepted'),
+        first ? [{ field: first[0], message: first[1][0] ?? '' }] : []);
+    }
+    return { token: data.id, verifyUrl: data.verification_url };
+  },
+  saveCard: async (token) => {
+    await request('POST', '/api/billing/cards', { token });
+  },
+  confirmCard: (token) => request('POST', '/api/billing/cards/confirm', token ? { token } : {}),
+  payNow: () => request('POST', '/api/billing/pay', {}),
+  setCancel: (cancel) => request('POST', '/api/billing/cancel', { cancel }),
+
   documents: async (debtorId) => (await request<{ items: DocumentInfo[] }>('GET', `/api/documents${qs({ debtor_id: debtorId })}`)).items,
   uploadDocument: async ({ debtorId, debtId, docType, file }) => {
     // The fields come before the file (the API reads them first).

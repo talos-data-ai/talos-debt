@@ -5,6 +5,7 @@ import { claimTasks, recoverStaleTasks, type Recovered } from './claim.js';
 import { planTasks, type PlanResult } from './planner.js';
 import { sendDailySummaries } from './summary.js';
 import { runTask, type TaskOutcome } from './tasks.js';
+import { runBilling, type BillingDeps, type BillingRound } from '../billing/billing.js';
 
 export interface SchedulerDeps {
   /** API pool (talos_api, RLS applies): all work on client data. */
@@ -15,6 +16,8 @@ export interface SchedulerDeps {
   sender: WhatsAppSender | undefined;
   now: () => Date;
   log?: { info: (o: object, msg: string) => void; error: (o: object, msg: string) => void };
+  /** Subscription payments (7.6): charges and billing notices, every round. Off when absent. */
+  billing?: BillingDeps;
 }
 
 export interface TickResult {
@@ -22,6 +25,7 @@ export interface TickResult {
   planned?: PlanResult;
   ran: { id: string; type: string; outcome: TaskOutcome }[];
   summaries: number;
+  billing?: BillingRound;
 }
 
 /**
@@ -29,7 +33,8 @@ export interface TickResult {
  *   1. puts back tasks a stopped worker left half done (never sending twice),
  *   2. plans next steps for debts that have none (every few minutes),
  *   3. takes due tasks and runs them one at a time,
- *   4. sends the daily summaries that are due.
+ *   4. sends the daily summaries that are due,
+ *   5. charges the subscriptions that are due and sends the billing notices.
  *
  * Several workers can run at once: claiming uses SKIP LOCKED, planning takes
  * an advisory lock, and the database allows only one open reminder per debt.
@@ -73,13 +78,15 @@ export class Scheduler {
     }
 
     const summaries = await sendDailySummaries(this.deps, config.DAILY_SUMMARY_TIME);
+    const billing = this.deps.billing ? await runBilling({ ...this.deps.billing, now }) : undefined;
+    if (billing && (billing.charged || billing.recovered || billing.notices)) this.deps.log?.info({ billing }, 'scheduler: billing');
     if (ran.length || summaries || recovered.requeued || recovered.closed || planned?.reminders || planned?.legal) {
       this.deps.log?.info(
         { recovered, planned, ran: ran.length, summaries },
         `scheduler: ran ${ran.length} task(s)`,
       );
     }
-    return { recovered, planned, ran, summaries };
+    return { recovered, planned, ran, summaries, billing };
   }
 
   /** Run ticks until stop() is called. Errors are logged and the next tick tries again. */

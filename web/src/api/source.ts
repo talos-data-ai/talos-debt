@@ -6,6 +6,7 @@ import type {
   OnboardingFileKind,
   OnboardingInput,
   SignUpInput,
+  Billing, BillingGateway, CardInput, CardResult,
 } from './types';
 
 export interface DebtQuery {
@@ -87,6 +88,17 @@ export interface DataSource {
   uploadImport(file: File): Promise<ImportReport>;
   confirmImport(id: string): Promise<ImportReport>;
   cancelImport(id: string): Promise<void>;
+
+  // Billing (7.6): owners and admins
+  billing(): Promise<Billing>;
+  /** Sends the card straight to the payment provider (never to Talos). Returns the token and the bank's confirmation page. */
+  tokenizeCard(gateway: BillingGateway, card: CardInput): Promise<{ token: string; verifyUrl: string }>;
+  /** Saves the token before the cardholder goes to their bank. */
+  saveCard(token: string): Promise<void>;
+  /** Back from the bank: the card becomes the company's card, and a payment due now is taken. */
+  confirmCard(token?: string): Promise<CardResult>;
+  payNow(): Promise<{ payment: 'paid' | 'pending' }>;
+  setCancel(cancel: boolean): Promise<{ ends_at: string | null }>;
 
   // Legal and Najiz (Phase 5)
   legal(): Promise<LegalRow[]>;

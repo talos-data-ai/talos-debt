@@ -1,32 +1,42 @@
 /**
- * The terms of use and the privacy policy, in Arabic and English with the same
- * shape (the compiler and a test check it).
+ * The terms of use, the privacy policy and the refund and cancellation policy,
+ * in Arabic and English with the same shape (the compiler and a test check it).
  *
  * Written by Claude for Sal on 25 November 2026 from the Personal Data
  * Protection Law (PDPL), its Implementing Regulations and the Regulation on
  * Personal Data Transfer outside the Kingdom, and from what the product does
- * today. Approved by Sal's lawyer on 26 November 2026.
+ * today. The terms and the privacy policy were approved by Sal's lawyer on
+ * 26 November 2026. The refund and cancellation policy (written 26 November
+ * 2026, with payments, step 7.6) and the line of the terms that points to it
+ * wait for the lawyer.
  *
- * Any change to the meaning of these texts goes back to the lawyer: set
- * `LEGAL_REVIEWED` to false until it is approved (the pages then say they are
- * a draft, and a production build refuses to run), and change TERMS_VERSION
+ * Any change to the meaning of these texts goes back to the lawyer: set that
+ * page to false in `REVIEWED` until it is approved (the page then says it is a
+ * draft, and a production build refuses to run), and change TERMS_VERSION
  * here and in api/src/routes/onboarding.ts so new sign-ups record it.
  *
  * Talos's legal name, commercial registration, address and privacy email are
  * settings (LEGAL_NAME, LEGAL_CR, LEGAL_ADDRESS, PRIVACY_EMAIL), never written
  * here: this repository is public. In the text they are {entity}, {cr},
- * {address} and {email}; {pricing} links to the pricing page.
+ * {address} and {email}; {pricing} links to the pricing page and {refunds} to
+ * the refund and cancellation policy.
  *
  * Say only what the product does today. When the product changes how it uses
  * personal data, change these pages in the same pull request.
  */
 import type { Lang } from './content.js';
 
-export const LEGAL_REVIEWED = true;
-/** The date of the last change, shown on both pages. */
-export const LEGAL_UPDATED = '2026-11-25';
+export type LegalKind = 'terms' | 'privacy' | 'refunds';
+export const LEGAL_KINDS: LegalKind[] = ['terms', 'privacy', 'refunds'];
+
+/** Which pages the lawyer has approved as they are written here. */
+export const REVIEWED: Record<LegalKind, boolean> = { terms: false, privacy: true, refunds: false };
+/** All of them: a production build needs this. */
+export const LEGAL_REVIEWED = LEGAL_KINDS.every((k) => REVIEWED[k]);
+/** The date of the last change, shown on every page. */
+export const LEGAL_UPDATED = '2026-11-26';
 /** Recorded with every sign-up, so we know which terms each company agreed to. */
-export const TERMS_VERSION = '2026-11-25';
+export const TERMS_VERSION = '2026-11-26';
 
 /** A paragraph, or a list of points. */
 export type Block = string | { list: string[] };
@@ -44,6 +54,7 @@ export interface LegalCopy {
   draft: string;
   terms: LegalPage;
   privacy: LegalPage;
+  refunds: LegalPage;
 }
 
 // ------------------------------------------------------------------ English
@@ -93,7 +104,7 @@ const enTerms: LegalPage = {
             'Each plan starts at 250 debtors and is paid monthly or yearly, in advance. Prices are on the pricing page and in your account, with value added tax as the law requires.',
             'Your subscription renews on its own at the end of each period, by charging the card you added, until you cancel it. We send an invoice for every payment.',
             'You may change your plan at any time. A higher plan starts at once; a lower plan starts at the next period.',
-            'You may cancel at any time from your account. The cancellation takes effect at the end of the period you have paid for. Amounts already paid are not refunded, except where the law requires it.',
+            'You may cancel at any time from your account. The cancellation takes effect at the end of the period you have paid for. Amounts already paid are not refunded, except as our refund and cancellation policy ({refunds}) says or where the law requires it.',
             'If a payment fails, Talos stops sending messages to your debtors and stops filing on Najiz at once, and tells the owner. Everything starts again as soon as the payment goes through. Your data stays in your account.',
             'We may change our prices. We tell you at least 30 days before a new price applies to you, and it applies from your next period.',
           ],
@@ -475,7 +486,7 @@ const arTerms: LegalPage = {
             'تبدأ كل باقة من 250 مديناً، وتُدفع شهرياً أو سنوياً مقدماً. والأسعار معروضة في صفحة الأسعار وفي حسابك، مع ضريبة القيمة المضافة كما يقتضي النظام.',
             'يتجدد اشتراكك تلقائياً في نهاية كل مدة بالخصم من البطاقة التي أضفتها، حتى تلغيه. ونرسل فاتورة عن كل دفعة.',
             'يمكنك تغيير باقتك في أي وقت. الباقة الأعلى تبدأ فوراً، والباقة الأدنى تبدأ من المدة التالية.',
-            'يمكنك الإلغاء في أي وقت من حسابك، ويسري الإلغاء في نهاية المدة التي دفعت عنها. ولا تُسترد المبالغ المدفوعة إلا إذا اقتضى النظام ذلك.',
+            'يمكنك الإلغاء في أي وقت من حسابك، ويسري الإلغاء في نهاية المدة التي دفعت عنها. ولا تُسترد المبالغ المدفوعة إلا كما تنص سياسة الاسترداد والإلغاء ({refunds}) أو إذا اقتضى النظام ذلك.',
             'إذا تعذّر الدفع، تتوقف تالوس فوراً عن مراسلة مدينيك وعن التقديم في ناجز، وتُخبر المالك. ويعود كل شيء للعمل بمجرد إتمام الدفع. وتبقى بياناتك في حسابك.',
             'قد نغيّر أسعارنا. ونخبرك قبل 30 يوماً على الأقل من تطبيق السعر الجديد عليك، ويُطبق من مدتك التالية.',
           ],
@@ -810,15 +821,263 @@ const arPrivacy: LegalPage = {
   ],
 };
 
+// ------------------------------------------------- Refunds and cancellation
+
+const enRefunds: LegalPage = {
+  meta: {
+    title: 'Refund and cancellation policy | Talos Debt Collection',
+    description: 'How the free trial, payments, renewals, cancelling and refunds work for Talos Debt Collection subscriptions.',
+  },
+  title: 'Refund and cancellation policy',
+  updated: 'Last updated: {date}',
+  intro: 'This policy explains how you pay for Talos Debt Collection, how to cancel, and when {entity}, commercial registration {cr} ("Talos", "we"), refunds a payment. It is part of our terms of use. Prices are on the pricing page ({pricing}).',
+  contents: 'On this page',
+  sections: [
+    {
+      id: 'short',
+      title: '1. In short',
+      body: [
+        {
+          list: [
+            'The first 14 days are free, and no card is needed to start.',
+            'You pay in advance, monthly or yearly, by card. Your subscription renews on its own until you cancel it.',
+            'You can cancel at any time from your account. You keep the service until the end of the period you paid for, and you are not charged again.',
+            'A period that has started is not refunded, except in the cases in section 5.',
+            'Talos never receives the money your debtors pay you, so this policy covers only what you pay Talos.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'trial',
+      title: '2. The free trial',
+      body: [
+        {
+          list: [
+            'Every plan can be tried free for 14 days. Nothing is charged during the trial.',
+            'To keep the service after the trial, the owner or an admin adds a card in the account. To check the card, the payment provider holds 1 riyal and releases it at once; it is never taken.',
+            'The first payment is taken from that card on the day the trial ends. If you are one of the first 10 companies that joined with the founding offer, your first month after the trial is also free, and the first payment is taken when that month ends.',
+            'If no card is added by the end of the trial, nothing is charged, and Talos stops sending messages to your debtors and stops filing on Najiz until you add one.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'paying',
+      title: '3. Paying and renewing',
+      body: [
+        {
+          list: [
+            'You pay in advance for one month or one year, as you chose, by mada, Visa or Mastercard. Prices include value added tax where the pricing page says so; otherwise tax is added as the law requires.',
+            'Your card details go from your browser straight to the payment provider. Talos never receives or stores your card number; it keeps only the card type, its last four digits and its expiry date.',
+            'At the end of each period, the same card is charged for the next one. For a yearly plan, we email the owner at least 7 days before the renewal.',
+            'We email a receipt for every payment, and the invoice as the law requires.',
+            'You can replace the card at any time from your account. The new card is used from the next payment.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'cancel',
+      title: '4. Cancelling',
+      body: [
+        {
+          list: [
+            'The owner or an admin can cancel at any time from Settings, then Billing, or by emailing us at {email} from the owner’s email.',
+            'Cancelling takes effect at the end of the period you have paid for. Until then the service works as usual, and nothing more is charged.',
+            'You can undo the cancellation from the same place before the period ends.',
+            'When the period ends, Talos stops sending messages to your debtors and stops filing on Najiz. Your data stays in your account until you subscribe again or ask us to close the account; closing the account deletes your data as our privacy policy explains.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'refunds',
+      title: '5. Refunds',
+      body: [
+        'A period that has started is not refunded, including when you cancel during it, use the service less than planned or have fewer debtors than your plan allows. We refund in these cases:',
+        {
+          list: [
+            'Charged by mistake: if you are charged twice for the same period, charged a wrong amount, or charged after you cancelled before the renewal date, we refund the amount charged by mistake in full.',
+            'A new yearly plan: if you cancel within 14 days of the first payment of a yearly plan, we refund the yearly amount less the monthly price of each month that has started.',
+            'A long stop on our side: if the service cannot be used for more than 3 days in a row because of a fault on Talos’s side, we refund the days it could not be used. This does not cover stops caused by WhatsApp, Najiz, Nafath, the internet or planned maintenance we told you about.',
+            'Any other case where the law requires a refund.',
+          ],
+        },
+        'To ask for a refund, email us at {email} within 30 days of the payment, with your company name and the date of the payment.',
+      ],
+    },
+    {
+      id: 'how',
+      title: '6. How refunds are paid',
+      body: [
+        'We reply within 5 working days. An approved refund is sent to the same card within 14 days of our approval, through the payment provider; your bank may take a few more days to show it. The value added tax is refunded with the amount, and we issue a credit note as the law requires.',
+      ],
+    },
+    {
+      id: 'failed',
+      title: '7. When a payment fails',
+      body: [
+        {
+          list: [
+            'If a payment fails, Talos stops sending messages to your debtors and stops filing on Najiz at once, and tells the owner and the admins by email and in the dashboard.',
+            'We try the same card again after 1 day and after 3 days. You can also pay at any time from your account, with the same card or a new one.',
+            'Everything starts again as soon as the payment goes through, and the new period starts on that day. There is no late fee.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'other',
+      title: '8. Money that is not ours',
+      body: [
+        'Your debtors pay into your company’s own bank account. Talos never receives, holds or refunds that money; anything owed back to a debtor is between your company and the debtor. Fees charged by government bodies, such as courts, are not part of Talos’s prices, and Talos cannot refund them.',
+      ],
+    },
+    {
+      id: 'contact',
+      title: '9. Changes and contact',
+      body: [
+        'We may change this policy as our terms of use explain, telling you at least 30 days before an important change. If the Arabic and English texts differ, the Arabic text applies.',
+        '{entity}, {address}. Email: {email}.',
+      ],
+    },
+  ],
+};
+
+const arRefunds: LegalPage = {
+  meta: {
+    title: 'سياسة الاسترداد والإلغاء | تالوس لتحصيل الديون',
+    description: 'كيف تعمل التجربة المجانية والدفع والتجديد والإلغاء والاسترداد في اشتراكات تالوس لتحصيل الديون.',
+  },
+  title: 'سياسة الاسترداد والإلغاء',
+  updated: 'آخر تحديث: {date}',
+  intro: 'توضح هذه السياسة كيف تدفع مقابل تالوس لتحصيل الديون، وكيف تلغي اشتراكك، ومتى ترد {entity}، سجل تجاري رقم {cr} («تالوس» أو «نحن»)، مبلغاً مدفوعاً. وهي جزء من شروط الاستخدام. والأسعار معروضة في صفحة الأسعار ({pricing}).',
+  contents: 'في هذه الصفحة',
+  sections: [
+    {
+      id: 'short',
+      title: '1. باختصار',
+      body: [
+        {
+          list: [
+            'أول 14 يوماً مجانية، دون الحاجة إلى بطاقة للبدء.',
+            'تدفع مقدماً، شهرياً أو سنوياً، بالبطاقة. ويتجدد اشتراكك تلقائياً حتى تلغيه.',
+            'يمكنك الإلغاء في أي وقت من حسابك. وتبقى الخدمة متاحة لك حتى نهاية المدة التي دفعت عنها، ولا يُخصم منك شيء بعدها.',
+            'لا تُسترد مدة بدأت، إلا في الحالات الواردة في البند 5.',
+            'لا تستلم تالوس أبداً الأموال التي يدفعها لك مدينوك، فهذه السياسة تخص فقط ما تدفعه لتالوس.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'trial',
+      title: '2. التجربة المجانية',
+      body: [
+        {
+          list: [
+            'يمكن تجربة كل باقة مجاناً لمدة 14 يوماً، ولا يُخصم أي مبلغ خلال التجربة.',
+            'لمواصلة الخدمة بعد التجربة، يضيف المالك أو المسؤول بطاقة في الحساب. وللتحقق من البطاقة، يحجز مزود الدفع ريالاً واحداً ثم يفكّه فوراً، ولا يُخصم أبداً.',
+            'تُخصم الدفعة الأولى من هذه البطاقة في يوم انتهاء التجربة. وإذا كنت من أول 10 شركات انضمت بعرض المؤسسين، فالشهر الأول بعد التجربة مجاني أيضاً، وتُخصم الدفعة الأولى عند انتهائه.',
+            'إذا لم تُضف بطاقة حتى نهاية التجربة، فلا يُخصم شيء، وتتوقف تالوس عن مراسلة مدينيك وعن التقديم في ناجز حتى تضيفها.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'paying',
+      title: '3. الدفع والتجديد',
+      body: [
+        {
+          list: [
+            'تدفع مقدماً عن شهر أو سنة حسب اختيارك، ببطاقة مدى أو فيزا أو ماستركارد. وتشمل الأسعار ضريبة القيمة المضافة حيث تذكر صفحة الأسعار ذلك، وإلا تُضاف الضريبة كما يقتضي النظام.',
+            'تذهب بيانات بطاقتك من متصفحك إلى مزود الدفع مباشرة. ولا تستلم تالوس رقم بطاقتك ولا تحفظه، وتحتفظ فقط بنوع البطاقة وآخر أربعة أرقام منها وتاريخ انتهائها.',
+            'في نهاية كل مدة، تُخصم المدة التالية من البطاقة نفسها. وفي الباقة السنوية، نرسل إلى المالك بريداً قبل التجديد بسبعة أيام على الأقل.',
+            'نرسل إيصالاً بالبريد عن كل دفعة، والفاتورة كما يقتضي النظام.',
+            'يمكنك تغيير البطاقة في أي وقت من حسابك، وتُستخدم البطاقة الجديدة من الدفعة التالية.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'cancel',
+      title: '4. الإلغاء',
+      body: [
+        {
+          list: [
+            'يمكن للمالك أو المسؤول الإلغاء في أي وقت من الإعدادات ثم الفوترة، أو بمراسلتنا على {email} من بريد المالك.',
+            'يسري الإلغاء في نهاية المدة التي دفعت عنها. وحتى ذلك الحين تعمل الخدمة كالمعتاد، ولا يُخصم أي مبلغ آخر.',
+            'يمكنك التراجع عن الإلغاء من المكان نفسه قبل نهاية المدة.',
+            'عند انتهاء المدة، تتوقف تالوس عن مراسلة مدينيك وعن التقديم في ناجز. وتبقى بياناتك في حسابك حتى تشترك مرة أخرى أو تطلب منا إغلاق الحساب، وإغلاق الحساب يحذف بياناتك كما توضح سياسة الخصوصية.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'refunds',
+      title: '5. الاسترداد',
+      body: [
+        'لا تُسترد مدة بدأت، ولو ألغيت خلالها أو استخدمت الخدمة أقل مما خططت أو كان عدد مدينيك أقل مما تسمح به باقتك. ونرد المبلغ في هذه الحالات:',
+        {
+          list: [
+            'الخصم بالخطأ: إذا خُصمت منك المدة نفسها مرتين، أو خُصم مبلغ غير صحيح، أو خُصم منك بعد أن ألغيت قبل موعد التجديد، نرد المبلغ المخصوم بالخطأ كاملاً.',
+            'باقة سنوية جديدة: إذا ألغيت خلال 14 يوماً من الدفعة الأولى لباقة سنوية، نرد المبلغ السنوي بعد خصم السعر الشهري عن كل شهر بدأ.',
+            'توقف طويل من جهتنا: إذا تعذّر استخدام الخدمة أكثر من 3 أيام متتالية بسبب خلل من جهة تالوس، نرد قيمة الأيام التي تعذّر فيها الاستخدام. ولا يشمل ذلك التوقف بسبب واتساب أو ناجز أو نفاذ أو الإنترنت، أو الصيانة المجدولة التي أخبرناك بها.',
+            'أي حالة أخرى يوجب فيها النظام الاسترداد.',
+          ],
+        },
+        'لطلب الاسترداد، راسلنا على {email} خلال 30 يوماً من الدفعة، مع اسم شركتك وتاريخ الدفعة.',
+      ],
+    },
+    {
+      id: 'how',
+      title: '6. كيف يُرد المبلغ',
+      body: [
+        'نرد عليك خلال 5 أيام عمل. ويُرسل المبلغ المعتمد إلى البطاقة نفسها خلال 14 يوماً من اعتمادنا له، عن طريق مزود الدفع، وقد يحتاج بنكك بضعة أيام أخرى لإظهاره. وتُرد ضريبة القيمة المضافة مع المبلغ، ونصدر إشعاراً دائناً كما يقتضي النظام.',
+      ],
+    },
+    {
+      id: 'failed',
+      title: '7. عند تعذّر الدفع',
+      body: [
+        {
+          list: [
+            'إذا تعذّر الدفع، تتوقف تالوس فوراً عن مراسلة مدينيك وعن التقديم في ناجز، وتُخبر المالك والمسؤولين بالبريد وفي لوحة التحكم.',
+            'نحاول الخصم من البطاقة نفسها مرة أخرى بعد يوم وبعد 3 أيام. ويمكنك أيضاً الدفع في أي وقت من حسابك، بالبطاقة نفسها أو ببطاقة جديدة.',
+            'يعود كل شيء للعمل بمجرد إتمام الدفع، وتبدأ المدة الجديدة من ذلك اليوم. ولا توجد رسوم تأخير.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'other',
+      title: '8. أموال ليست لنا',
+      body: [
+        'يدفع مدينوك في حساب شركتك البنكي مباشرة. ولا تستلم تالوس هذه الأموال ولا تحتفظ بها ولا تردها، وأي مبلغ يستحق للمدين هو بين شركتك والمدين. والرسوم التي تفرضها الجهات الحكومية، مثل المحاكم، ليست جزءاً من أسعار تالوس، ولا تستطيع تالوس ردها.',
+      ],
+    },
+    {
+      id: 'contact',
+      title: '9. التغييرات والتواصل',
+      body: [
+        'قد نغيّر هذه السياسة كما توضح شروط الاستخدام، ونخبرك قبل 30 يوماً على الأقل من أي تغيير مهم. وإذا اختلف النص العربي عن الإنجليزي، يُعمل بالنص العربي.',
+        '{entity}، {address}. البريد: {email}.',
+      ],
+    },
+  ],
+};
+
 export const legalCopies: Record<Lang, LegalCopy> = {
   en: {
     draft: 'Draft for legal review. This page is not in force yet.',
     terms: enTerms,
     privacy: enPrivacy,
+    refunds: enRefunds,
   },
   ar: {
     draft: 'مسودة للمراجعة القانونية. هذه الصفحة غير سارية بعد.',
     terms: arTerms,
     privacy: arPrivacy,
+    refunds: arRefunds,
   },
 };

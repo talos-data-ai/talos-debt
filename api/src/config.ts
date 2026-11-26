@@ -81,6 +81,18 @@ const schema = z.object({
   SITE_URL: z.url().optional(),
   CONTACT_INBOX: z.email().optional(),
 
+  // Subscription payments (7.6). 'fake' is a provider in memory (development and tests only).
+  PAYMENT_DRIVER: z.enum(['none', 'fake', 'moyasar']).default('none'),
+  // Moyasar keys: test keys (sk_test_, pk_test_) outside production, live keys only in production.
+  MOYASAR_SECRET_KEY: z.string().optional(),
+  MOYASAR_PUBLISHABLE_KEY: z.string().optional(),
+  // The secret set on the webhook in Moyasar's dashboard; every webhook must carry it.
+  MOYASAR_WEBHOOK_SECRET: z.string().min(24, 'must be at least 24 characters').optional(),
+  MOYASAR_API_URL: z.url().default('https://api.moyasar.com/v1'),
+  // The prices: the same JSON file as the website, kept outside the repository (see api/src/billing/pricing.ts).
+  PRICING_FILE: z.string().optional(),
+  PRICING_JSON: z.string().optional(),
+
   // Najiz worker (Phase 5.4, `npm run najiz`).
   NAJIZ_URL: z.url().default('https://najiz.sa'),
   // How long the owner has to choose the number in the Nafath app.
@@ -153,6 +165,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   if (config.STORAGE_DRIVER === 'gcs' && !config.GCS_BUCKET) {
     throw new Error('GCS_BUCKET is required when STORAGE_DRIVER=gcs.');
+  }
+  if (config.PAYMENT_DRIVER === 'fake' && config.NODE_ENV === 'production') {
+    throw new Error('PAYMENT_DRIVER=fake is not allowed in production.');
+  }
+  if (config.PAYMENT_DRIVER === 'moyasar') {
+    const { MOYASAR_SECRET_KEY: sk, MOYASAR_PUBLISHABLE_KEY: pk } = config;
+    if (!sk || !pk || !config.MOYASAR_WEBHOOK_SECRET) {
+      throw new Error('MOYASAR_SECRET_KEY, MOYASAR_PUBLISHABLE_KEY and MOYASAR_WEBHOOK_SECRET are required when PAYMENT_DRIVER=moyasar.');
+    }
+    // Real cards are charged only in production, and only there.
+    const mode = config.NODE_ENV === 'production' ? 'live' : 'test';
+    if (!sk.startsWith(`sk_${mode}_`) || !pk.startsWith(`pk_${mode}_`)) {
+      throw new Error(`Moyasar ${mode} keys (sk_${mode}_, pk_${mode}_) are required ${mode === 'live' ? 'in production' : 'outside production'}.`);
+    }
+  }
+  if (config.PAYMENT_DRIVER !== 'none' && !config.PRICING_FILE && !config.PRICING_JSON) {
+    throw new Error('PRICING_FILE is required when payments are on (PAYMENT_DRIVER).');
   }
   if (config.NODE_ENV === 'production' && config.WORKER_DATABASE_URL && !config.WHATSAPP_APP_SECRET) {
     throw new Error('WHATSAPP_APP_SECRET is required in production to check webhook signatures.');

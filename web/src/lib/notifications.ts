@@ -7,10 +7,11 @@ import { groupDigits } from './money';
  * (`data.event`, migration 0007). Older notifications without details keep the
  * title the API stored.
  */
-export function notificationText(n: Notification, t: I18n['t']): string {
+export function notificationText(n: Notification, t: I18n['t'], formatDate?: I18n['formatDate']): string {
   const d = n.data;
   if (!d) return n.title;
   const vars = {
+    date: d.date ? (formatDate ? formatDate(d.date, { day: 'numeric', month: 'long', year: 'numeric' }) : d.date.slice(0, 10)) : '',
     name: d.name ?? '',
     ref: d.ref ?? '',
     amount: d.amount ? groupDigits(d.amount) : '',
@@ -45,6 +46,13 @@ export function notificationText(n: Notification, t: I18n['t']): string {
     case 'najiz_stopped':
     case 'najiz_status':
     case 'setup_done':
+    case 'billing_paid':
+    case 'billing_failed':
+    case 'trial_ending':
+    case 'trial_ended':
+    case 'renewal_soon':
+    case 'subscription_cancelled':
+    case 'subscription_ended':
       return t(`note.${event}`, vars);
     default:
       return n.title;
@@ -76,5 +84,6 @@ export function notificationLink(n: Notification): string | null {
   if ((event === 'najiz_filed' || event === 'najiz_status') && n.target_table === 'app.debts' && n.target_id) return `/legal/case/${n.target_id}`;
   if (n.data?.debtor_id) return `/debtors/${n.data.debtor_id}`;
   if (event === 'legal_ready' || event === 'najiz_stopped') return '/legal';
+  if (n.target_table === 'billing') return '/settings/billing';
   return null;
 }

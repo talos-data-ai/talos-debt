@@ -49,6 +49,10 @@ export const useRules = () => {
   const s = useSource();
   return useQuery({ queryKey: ['rules'], queryFn: () => s.rules(), staleTime: 5 * 60_000 });
 };
+export const useBilling = (enabled = true) => {
+  const s = useSource();
+  return useQuery({ queryKey: ['billing'], queryFn: () => s.billing(), enabled });
+};
 export const useOnboarding = (enabled = true) => {
   const s = useSource();
   return useQuery({ queryKey: ['onboarding'], queryFn: () => s.onboarding(), enabled });
@@ -132,3 +136,6 @@ export const useUploadLegalFile = () =>
   useAction((s, a: { debtId: string; kind: NajizUploadKind; file: File }) => s.uploadLegalFile(a.debtId, a.kind, a.file), [...LEGAL_VIEWS, 'documents']);
 export const useMakePack = () => useAction((s, debtId: string) => s.makePack(debtId), ['legalCase', 'documents']);
 export const useAddLegalStatus = () => useAction((s, a: { debtId: string; input: LegalStatusInput }) => s.addLegalStatus(a.debtId, a.input), LEGAL_VIEWS);
+const BILLING_VIEWS = ['billing', 'me', 'notifications'];
+export const usePayNow = () => useAction((s, _: void) => s.payNow(), BILLING_VIEWS);
+export const useSetCancel = () => useAction((s, cancel: boolean) => s.setCancel(cancel), BILLING_VIEWS);

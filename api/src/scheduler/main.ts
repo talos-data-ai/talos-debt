@@ -10,6 +10,9 @@ import { loadConfig } from '../config.js';
 import { assertRlsEnforced, assertWorkerRole, createPool } from '../db.js';
 import { MetaCloudSender } from '../whatsapp/client.js';
 import { Scheduler } from './scheduler.js';
+import { loadPricing } from '../billing/pricing.js';
+import { createGateway } from '../billing/setup.js';
+import { createMailer } from '../login/mailer.js';
 
 const once = process.argv.includes('--once');
 const config = loadConfig();
@@ -34,7 +37,13 @@ const log = {
     ),
 };
 
-const scheduler = new Scheduler({ pool, workerPool, config, sender, now: () => new Date(), log });
+const now = () => new Date();
+const gateway = createGateway(config);
+const billing = gateway
+  ? { pool, workerPool, config, gateway, pricing: loadPricing(config), mailer: createMailer(config), now, log }
+  : undefined;
+if (!billing) log.info({}, 'Payments are not set up (PAYMENT_DRIVER): no subscription is charged');
+const scheduler = new Scheduler({ pool, workerPool, config, sender, now, log, billing });
 if (!scheduler.canSend()) {
   log.info({}, 'WhatsApp is not set up (WHATSAPP_TOKEN, or WHATSAPP_DEV_REDIRECT_TO outside production): reminders wait, other tasks run');
 }

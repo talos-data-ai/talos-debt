@@ -32,7 +32,7 @@ import { parseOr400 } from '../validation.js';
 import { readUpload } from './upload.js';
 
 /** The terms of use people accept at sign-up. Same value as TERMS_VERSION in site/src/legal.ts (a site test checks it). */
-export const TERMS_VERSION = '2026-11-25';
+export const TERMS_VERSION = '2026-11-26';
 
 const ADMINS: readonly Role[] = ['owner', 'admin'];
 export const PLANS = ['follow_up', 'legal', 'najiz'] as const;

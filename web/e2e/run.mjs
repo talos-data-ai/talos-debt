@@ -276,7 +276,7 @@ await step('logging out ends the session: the pages ask to log in again', async 
 
 console.log('\nEvery page, both languages, both themes, desktop and phone');
 
-const PAGES = ['/', '/debtors', `/debtors/${DEBTOR.imran}`, '/approvals/payments', '/approvals/disputes', '/approvals/reminders', '/legal', '/notifications', '/import', '/settings/rules', '/settings/team', '/settings/templates'];
+const PAGES = ['/', '/debtors', `/debtors/${DEBTOR.imran}`, '/approvals/payments', '/approvals/disputes', '/approvals/reminders', '/legal', '/notifications', '/import', '/settings/rules', '/settings/team', '/settings/templates', '/settings/billing'];
 for (const [lang, theme, width, height, mobile] of [
   ['en', 'light', 1366, 900, false],
   ['ar', 'dark', 1366, 900, false],
@@ -772,6 +772,40 @@ await step('sign up in Arabic: one plan only, the account and the terms, then se
   assert.equal(after.status, 'active');
   assert.ok(after.authorization.signed_at);
   assert.equal((await api('/api/me')).client.status, 'active');
+
+  // Billing (7.6): on the trial the owner adds a card. The card goes to the payment provider
+  // (the API's development stand-in here), never to Talos's own routes.
+  await page.goto(`${APP}/settings/billing`);
+  await page.getByText(t['billing.card.none']).waitFor();
+  await axe(page, 'billing ar trial');
+  assert.deepEqual(await englishLeftInArabic(page), [], 'English left on the Arabic billing page');
+  await page.getByRole('button', { name: t['billing.card.add'] }).click();
+  const posts = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST') posts.push({ url: r.url(), body: r.postData() ?? '' });
+  });
+  await page.getByLabel(t['billing.form.name']).fill('Khalid Test');
+  await page.getByLabel(t['billing.form.number']).fill('4111111111111111');
+  await page.getByLabel(t['billing.form.expiry']).fill('1230');
+  await page.getByLabel(t['billing.form.cvc']).fill('123');
+  await axe(page, 'billing ar card form');
+  await page.getByRole('button', { name: t['billing.form.submit'] }).click();
+  await page.getByRole('img', { name: t['billing.card.ending'].replace('{last4}', '1111') }).waitFor();
+  const billing = await api('/api/billing');
+  assert.equal(billing.card.last_four, '1111');
+  assert.equal(billing.billing_status, 'trial');
+  assert.deepEqual(billing.charges, [], 'nothing is charged during the trial');
+  assert.ok(!JSON.stringify(billing).includes('token_'), 'the card token never reaches the browser');
+  for (const r of posts) if (!r.url.includes('/api/billing/fake/tokens')) assert.ok(!r.body.includes('4111111111111111'), `the card number went to ${r.url}`);
+
+  // Cancelling asks first, and can be undone before the end of the trial.
+  await page.getByRole('button', { name: t['billing.cancel.title'] }).click();
+  await page.getByRole('dialog').getByRole('button', { name: t['billing.cancel.confirm'] }).click();
+  await page.getByRole('dialog').waitFor({ state: 'detached' });
+  assert.equal((await api('/api/billing')).cancel_at_period_end, true);
+  await page.getByRole('button', { name: t['billing.keep'] }).click();
+  await page.getByRole('button', { name: t['billing.cancel.title'] }).waitFor();
+  assert.equal((await api('/api/billing')).cancel_at_period_end, false);
   await page.context().close();
 });
 
