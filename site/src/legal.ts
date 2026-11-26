@@ -2,12 +2,15 @@
  * The terms of use and the privacy policy, in Arabic and English with the same
  * shape (the compiler and a test check it).
  *
- * DRAFT: written by Claude for Sal on 25 November 2026 from the Personal Data
+ * Written by Claude for Sal on 25 November 2026 from the Personal Data
  * Protection Law (PDPL), its Implementing Regulations and the Regulation on
  * Personal Data Transfer outside the Kingdom, and from what the product does
- * today. A Saudi lawyer reviews them before any company signs up. Until
- * `LEGAL_REVIEWED` is true the pages say they are a draft, and a production
- * build refuses to run.
+ * today. Approved by Sal's lawyer on 26 November 2026.
+ *
+ * Any change to the meaning of these texts goes back to the lawyer: set
+ * `LEGAL_REVIEWED` to false until it is approved (the pages then say they are
+ * a draft, and a production build refuses to run), and change TERMS_VERSION
+ * here and in api/src/routes/onboarding.ts so new sign-ups record it.
  *
  * Talos's legal name, commercial registration, address and privacy email are
  * settings (LEGAL_NAME, LEGAL_CR, LEGAL_ADDRESS, PRIVACY_EMAIL), never written
@@ -19,7 +22,7 @@
  */
 import type { Lang } from './content.js';
 
-export const LEGAL_REVIEWED = false;
+export const LEGAL_REVIEWED = true;
 /** The date of the last change, shown on both pages. */
 export const LEGAL_UPDATED = '2026-11-25';
 /** Recorded with every sign-up, so we know which terms each company agreed to. */

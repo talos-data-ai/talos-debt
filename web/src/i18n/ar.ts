@@ -860,7 +860,7 @@ export const ar: Messages = {
   'signup.fromDebtors': 'من 250 مديناً',
   'signup.choose': 'اختر',
   'signup.included': 'ما تشمله الباقة',
-  'signup.newHere': 'جديد في هذه الباقة',
+  'signup.everythingIn': 'كل ما في باقة {plan}، وأيضاً:',
   'signup.seePrices': 'اطّلع على الأسعار',
   'signup.continueWith': 'تابع مع باقة {plan}',
   'signup.detailsTitle': 'أنشئ حسابك',

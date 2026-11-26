@@ -86,7 +86,7 @@ export interface Copy {
     debtors: string;
     moreDebtors: string;
     included: string;
-    newTag: string;
+    everything: string;
     newHint: string;
     cta: string;
     trial: string;
@@ -360,8 +360,8 @@ export const en: Copy = {
     debtors: 'From 250 debtors',
     moreDebtors: 'More debtors? Ask us for the price.',
     included: 'What is included',
-    newTag: 'New',
-    newHint: 'Each plan has everything in the plan before it. What is new in a plan is marked New.',
+    everything: 'Everything in {plan}, and:',
+    newHint: 'Each plan has everything in the plan before it, and more.',
     cta: 'Start your free trial',
     trial: '14 days free on every plan',
     founding: 'The first 10 companies get their first month free',
@@ -699,8 +699,8 @@ export const ar: Copy = {
     debtors: 'من 250 مديناً',
     moreDebtors: 'مدينون أكثر؟ اسألنا عن السعر.',
     included: 'ما تشمله الباقة',
-    newTag: 'جديد',
-    newHint: 'كل باقة فيها كل ما في الباقة التي قبلها. وما يُضاف في كل باقة عليه علامة جديد.',
+    everything: 'كل ما في باقة {plan}، وأيضاً:',
+    newHint: 'كل باقة فيها كل ما في الباقة التي قبلها وأكثر.',
     cta: 'ابدأ تجربتك المجانية',
     trial: '14 يوماً مجاناً في كل باقة',
     founding: 'أول 10 شركات تحصل على الشهر الأول مجاناً',

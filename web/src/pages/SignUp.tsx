@@ -13,7 +13,7 @@
  * No card is asked for: it is added before the trial ends (7.6).
  */
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, CreditCard, FileText, Landmark, MessageCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CreditCard, FileText, Landmark, Layers, MessageCircle } from 'lucide-react';
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSource } from '../api/hooks';
@@ -151,20 +151,12 @@ function PlanStep({ initial, onNext }: { initial: { plan: PlanKey; period: Billi
                   <span className="plan-card-label">{t('signup.included')}</span>
                   <ul className="plan-card-features">
                     {planFeatures(p).map((f) => (
-                      <li key={f.key} className={f.isNew ? 'is-new' : undefined}>
-                        {f.isNew ? <Sparkles size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}
-                        <span>
-                          {t(f.key)}
-                          {f.isNew && <span className="sr-only"> ({t('signup.newHere')})</span>}
-                        </span>
+                      <li key={f.key} className={f.before ? 'is-all' : undefined}>
+                        {f.before ? <Layers size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}
+                        <span>{f.before ? t(f.key, { plan: t(`plan.${f.before}` as MessageKey) }) : t(f.key)}</span>
                       </li>
                     ))}
                   </ul>
-                  {p !== 'follow_up' && (
-                    <span className="plan-card-key" aria-hidden="true">
-                      <Sparkles size={13} /> {t('signup.newHere')}
-                    </span>
-                  )}
                 </label>
               );
             })}

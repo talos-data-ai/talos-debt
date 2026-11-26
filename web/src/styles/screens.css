@@ -474,42 +474,88 @@ input[type='time'] {
 .auth-brand-inner {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-7);
-  max-inline-size: 380px;
+  align-items: center;
+  gap: var(--space-6);
+  max-inline-size: 400px;
+  text-align: center;
 }
 .auth-brand-inner > svg:first-child {
   color: #fff;
 }
-.auth-orbit {
+
+/* The guard: a shield that draws itself, then rests while two soft rings
+   move slowly out from it and fade, and a faint glow breathes behind it. */
+.auth-guard {
   inline-size: 100%;
-  max-inline-size: 300px;
+  max-inline-size: 280px;
   overflow: visible;
 }
-.auth-orbit-track {
+.auth-guard-ring {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.1);
-  stroke-width: 10;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1.5;
 }
-.auth-orbit-fill {
+.auth-guard-ripple {
   fill: none;
-  stroke: var(--emerald-600);
-  stroke-width: 10;
-  stroke-linecap: round;
-  animation: orbit-draw 1.6s var(--ease) both;
+  stroke: var(--emerald-400);
+  stroke-width: 1.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: guard-ripple 7s cubic-bezier(0.25, 0.6, 0.3, 1) 1.6s infinite;
 }
-@keyframes orbit-draw {
-  from {
-    stroke-dasharray: 0 100;
+.auth-guard-ripple-2 {
+  animation-delay: 5.1s;
+}
+@keyframes guard-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.75);
+    opacity: 0;
   }
 }
-.auth-orbit-dot {
-  fill: var(--navy-900);
-  stroke: #fff;
-  stroke-width: 3;
+.auth-guard-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: guard-breathe 7s ease-in-out infinite alternate;
 }
-.auth-orbit-core {
-  fill: var(--emerald-600);
+@keyframes guard-breathe {
+  from {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+.auth-guard-shield {
+  fill: rgba(14, 159, 110, 0.1);
+  stroke: var(--emerald-400);
+  stroke-width: 4;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  animation: guard-draw 1.4s cubic-bezier(0.65, 0, 0.35, 1) 0.2s backwards;
+}
+.auth-guard-check {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  animation: guard-draw 0.6s ease-out 1.3s backwards;
+}
+@keyframes guard-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
 }
 .auth-brand-line {
   font-family: var(--font-display);
@@ -2270,11 +2316,13 @@ input[type='time'] {
   margin-block-start: 3px;
   color: var(--accent-ink);
 }
-.plan-card-features li.is-new {
+.plan-card-features li.is-all {
+  padding-block-end: 8px;
+  border-block-end: 1px dashed var(--line);
   color: var(--ink);
   font-weight: 600;
 }
-.plan-card-legal .plan-card-features li.is-new svg {
+.plan-card-legal .plan-card-features li.is-all svg {
   color: var(--magenta-600);
 }
 .plan-card-key {
