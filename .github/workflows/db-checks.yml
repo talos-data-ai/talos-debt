@@ -148,7 +148,8 @@ jobs:
           NODE_ENV=development PORT=3000 AUTH_MODE=session MAIL_DRIVER=log APP_URL=http://localhost:5173 \
           DATABASE_URL=postgres://talos_api:talos_api_dev@localhost:5432/talos_dev \
           WORKER_DATABASE_URL=postgres://talos_jobs:talos_jobs_dev@localhost:5432/talos_dev \
-          WHATSAPP_DEV_REDIRECT_TO=+966500000000 STORAGE_DRIVER=local LOG_LEVEL=warn \
+          WHATSAPP_DEV_REDIRECT_TO=+966500000000 STORAGE_DRIVER=local LOG_LEVEL=warn PAYMENT_DRIVER=fake \
+          PRICING_JSON='{"vat":"excluded","founding_offer":true,"tiers":[{"monthly":"100","yearly":"1000"},{"monthly":"200","yearly":"2000"},{"monthly":"300","yearly":"3000"}]}' \
           nohup npx tsx src/server.ts > ../api.log 2>&1 &
           cd ../web && nohup npx vite --port 5173 --strictPort > ../web.log 2>&1 &
           for i in $(seq 1 60); do curl -sf localhost:3000/health >/dev/null && curl -sf localhost:5173 >/dev/null && exit 0; sleep 1; done

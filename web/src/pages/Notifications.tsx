@@ -84,7 +84,7 @@ export function NotificationsPage() {
               {d.items.map((n) => {
                 const Icon = iconFor(n);
                 const to = notificationLink(n);
-                const text = notificationText(n, t);
+                const text = notificationText(n, t, formatDate);
                 const read = () => {
                   if (!n.read_at) mark.mutate([n.id], { onError });
                 };

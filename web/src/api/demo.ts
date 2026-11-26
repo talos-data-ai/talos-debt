@@ -11,6 +11,7 @@ import type {
   LegalCaseDetail, LegalEvent, LegalRow, LegalStage, NajizCaseStep, NajizField, NajizRun,
   Approvals, DebtorDetail, DebtRow, DebtStatus, Debtor, DocumentInfo, FollowUpRules, ImportReport, Language, Notification, Phone, Summary,
   Task, Template, TimelineEvent, User, WaitingReminder, Onboarding, OnboardingStep, FileLite,
+  Billing, BillingCharge, MeBilling,
 } from './types';
 
 const CLIENT = '11111111-1111-4111-8111-111111111111';
@@ -428,6 +429,86 @@ function runNow(entry: { run: NajizRun; startedMs: number }): NajizRun {
   return next;
 }
 
+
+// ---------------------------------------------------------------- billing (7.6)
+
+/** Made-up amounts: never Talos's real prices, which are kept out of this public repository. */
+const DEMO_PRICE = { amount: '115.00', vat: '15.00', net: '100.00' };
+export type BillingScenario = 'trial' | 'active' | 'unpaid' | 'cancelling' | 'ended';
+const BRANDS: Record<string, string> = { '4201320111111010': 'mada', '4111111111111111': 'visa', '5421080101000000': 'master', '4201320000311101': 'mada' };
+
+function charge(id: string, daysAgo: number, status: BillingCharge['status'], reason: BillingCharge['reason'], card: { brand: string; last_four: string }, failure?: string): BillingCharge {
+  const start = new Date(NOW - daysAgo * 86_400_000);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 1);
+  return {
+    id, reason, plan: 'legal', billing_period: 'monthly', amount: DEMO_PRICE.amount, vat_amount: DEMO_PRICE.vat,
+    period_start: start.toISOString(), period_end: end.toISOString(), status,
+    failure_code: failure ? 'declined' : null, failure_message: failure ?? null, created_at: start.toISOString(), ...card,
+  };
+}
+
+function billingFor(scenario: BillingScenario): Billing {
+  const mada = { brand: 'mada', last_four: '1010' };
+  const visa = { brand: 'visa', last_four: '1111' };
+  const base: Billing = {
+    plan: 'legal', billing_period: 'monthly', billing_status: 'trial', trial_ends_at: ahead(9 * 24), founding_member: false,
+    free_until: ahead(9 * 24), paid_until: null, next_charge_at: null, cancel_at_period_end: false, cancelled_at: null, block: null,
+    price: DEMO_PRICE, card: null, charges: [], can_pay: false,
+    gateway: { provider: 'fake', publishable_key: 'pk_demo', tokens_url: '/demo/tokens', callback_url: '/settings/billing?card=return', metadata: { client_id: CLIENT } },
+  };
+  const paid = [charge('c2', 12, 'paid', 'renewal', mada), charge('c1', 42, 'paid', 'trial_end', mada)];
+  switch (scenario) {
+    case 'trial':
+      return base;
+    case 'active':
+      return { ...base, billing_status: 'active', trial_ends_at: ago(42 * 24), free_until: ago(42 * 24), paid_until: ahead(18 * 24), card: { ...mada, exp_month: 12, exp_year: 2030 }, charges: paid };
+    case 'unpaid':
+      return {
+        ...base, billing_status: 'unpaid', block: 'payment_needed', trial_ends_at: ago(42 * 24), free_until: ago(42 * 24), paid_until: ago(30), next_charge_at: ahead(18),
+        card: { ...visa, exp_month: 3, exp_year: 2027 }, can_pay: true,
+        charges: [charge('c3', 1.2, 'failed', 'renewal', visa, 'Insufficient Funds'), ...paid.map((c) => ({ ...c, ...visa }))],
+      };
+    case 'cancelling':
+      return { ...billingFor('active'), cancel_at_period_end: true };
+    case 'ended':
+      return { ...billingFor('active'), billing_status: 'cancelled', cancelled_at: ago(48), paid_until: ago(48), block: 'subscription_ended', can_pay: true };
+  }
+}
+
+/** The sample company's billing. The prototype opens a state with #/settings/billing?billing=unpaid (also active, cancelling, ended). */
+export const demoBilling = {
+  state: billingFor('active'),
+  /** Who is signed in for billing reviews: the owner (billing is for owners and admins). */
+  asOwner: false,
+  set(scenario: BillingScenario, asOwner = true) {
+    this.state = billingFor(scenario);
+    this.asOwner = asOwner;
+  },
+};
+if (typeof location !== 'undefined') {
+  const m = /[?&]billing=(trial|active|unpaid|cancelling|ended)\b/.exec(location.hash);
+  if (m) demoBilling.set(m[1] as BillingScenario);
+}
+const meBilling = (): MeBilling => {
+  const b = demoBilling.state;
+  return { billing_status: b.billing_status, block: b.block, free_until: b.free_until, paid_until: b.paid_until, cancel_at_period_end: b.cancel_at_period_end, has_card: !!b.card };
+};
+const pendingCards = new Map<string, string>();
+
+function demoPay(): 'paid' {
+  const b = demoBilling.state;
+  const start = new Date();
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + (b.billing_period === 'yearly' ? 12 : 1));
+  b.charges = [
+    { ...charge(`c${b.charges.length + 1}`, 0, 'paid', 'pay_now', { brand: b.card!.brand ?? 'visa', last_four: b.card!.last_four }), period_start: start.toISOString(), period_end: end.toISOString() },
+    ...b.charges,
+  ];
+  Object.assign(b, { billing_status: 'active', paid_until: end.toISOString(), next_charge_at: null, block: null, can_pay: false, cancel_at_period_end: false, cancelled_at: null });
+  return 'paid';
+}
+
 export const demoSource: DataSource = {
   demo: true,
 
@@ -483,7 +564,10 @@ export const demoSource: DataSource = {
 
   me: () =>
     pause(
-      setup.signedUpAs
+      demoBilling.asOwner
+        ? { user: { id: 'u1', fullName: 'Khalid Al-Nokhba', role: 'owner' as const },
+            client: { id: CLIENT, legal_name: 'Al Nokhba Delivery Co.', trade_name: 'Al Nokhba Delivery', sector: 'logistics', plan: 'legal', status: 'active', ...meBilling() } }
+        : setup.signedUpAs
         ? {
             user: { id: 'u1', fullName: setup.signedUpAs, role: 'owner' as const },
             client: {
@@ -492,8 +576,40 @@ export const demoSource: DataSource = {
             },
           }
         : { user: { id: 'u1', fullName: 'Noura Al-Qahtani', role: 'staff' as const },
-            client: { id: CLIENT, legal_name: 'Al Nokhba Delivery Co.', trade_name: 'Al Nokhba Delivery', sector: 'logistics', plan: 'legal', status: 'active' } },
+            client: { id: CLIENT, legal_name: 'Al Nokhba Delivery Co.', trade_name: 'Al Nokhba Delivery', sector: 'logistics', plan: 'legal', status: 'active', ...meBilling() } },
     ),
+  billing: () => pause(demoBilling.state),
+  tokenizeCard: async (_gateway, card) => {
+    await pause(null);
+    if (!BRANDS[card.number]) throw new ApiError(400, 'card_invalid', 'Use one of the test cards');
+    const token = `token_demo_${card.number.slice(-4)}_${Math.random().toString(16).slice(2, 10)}`;
+    pendingCards.set(token, card.number);
+    return { token, verifyUrl: `/settings/billing?card=return&id=${token}` };
+  },
+  saveCard: done,
+  confirmCard: async (token) => {
+    await pause(null);
+    const number = token ? pendingCards.get(token) : [...pendingCards.values()].at(-1);
+    if (!number) throw new ApiError(404, 'card_not_found', 'No card is waiting for confirmation');
+    const b = demoBilling.state;
+    b.card = { brand: BRANDS[number]!, last_four: number.slice(-4), exp_month: 12, exp_year: 2030 };
+    pendingCards.clear();
+    if (number === '4201320000311101' && b.can_pay) throw new ApiError(402, 'payment_failed', 'Insufficient Funds');
+    const due = b.billing_status === 'unpaid' || b.billing_status === 'cancelled';
+    b.can_pay = due;
+    return { card: b.card, ...(due ? { payment: demoPay() } : {}) };
+  },
+  payNow: async () => {
+    await pause(null);
+    if (!demoBilling.state.can_pay) throw new ApiError(409, 'nothing_due', 'There is nothing to pay now');
+    return { payment: demoPay() };
+  },
+  setCancel: async (cancel) => {
+    await pause(null);
+    const b = demoBilling.state;
+    b.cancel_at_period_end = cancel;
+    return { ends_at: b.paid_until ?? b.free_until };
+  },
   totals: () => {
     const open = debts.filter((d) => !['paid', 'closed', 'written_off'].includes(d.status));
     const enforceable = open.filter((d) => d.directly_enforceable);

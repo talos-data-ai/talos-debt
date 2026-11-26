@@ -23,7 +23,8 @@ import { ADMIN_URL, API_URL, CLIENT, OTHER_CLIENT, OWNER, staff, viewer } from '
 import pgLib from 'pg';
 
 const WORKER_URL = process.env.TEST_WORKER_DATABASE_URL ?? 'postgres://talos_jobs:talos_jobs_dev@localhost:5432/talos_test';
-const PRICES = JSON.stringify({ vat: 'excluded', founding_offer: true, tiers: [{ monthly: '299', yearly: '2990' }, { monthly: '499', yearly: '4990' }, { monthly: '799', yearly: '7990' }] });
+const PRICES = JSON.stringify({ vat: 'excluded', founding_offer: true, tiers: [{ monthly: '100', yearly: '1000' }, { monthly: '200', yearly: '2000' }, { monthly: '300', yearly: '3000.50' }] });
+// Made-up prices: Talos's real prices never go in this public repository.
 const SECRET = 'whsec_test_0123456789abcdefghij';
 const owner = { 'x-client-id': CLIENT, 'x-user-id': OWNER };
 const DAY = 86_400_000;
@@ -105,12 +106,12 @@ beforeEach(() => {
 describe('prices', () => {
   it('adds the tax in halalas, or takes it out of a price that includes it, never as a float', () => {
     const p = parsePricing(PRICES);
-    expect(priceFor(p, 'legal', 'monthly')).toEqual({ amount: '573.85', vat: '74.85', net: '499.00' });
-    expect(priceFor(p, 'najiz', 'yearly')).toEqual({ amount: '9188.50', vat: '1198.50', net: '7990.00' });
+    expect(priceFor(p, 'legal', 'monthly')).toEqual({ amount: '230.00', vat: '30.00', net: '200.00' });
+    expect(priceFor(p, 'najiz', 'yearly')).toEqual({ amount: '3450.58', vat: '450.08', net: '3000.50' });
     const inc = parsePricing(PRICES.replace('excluded', 'included'));
-    expect(priceFor(inc, 'legal', 'monthly')).toEqual({ amount: '499.00', vat: '65.09', net: '433.91' });
-    expect(() => parsePricing(PRICES.replace('"299"', '"2,99"'))).toThrow(/plan 1/);
-    expect(() => parsePricing(PRICES.replace('"299"', '"0"'))).toThrow(/zero/);
+    expect(priceFor(inc, 'legal', 'monthly')).toEqual({ amount: '200.00', vat: '26.09', net: '173.91' });
+    expect(() => parsePricing(PRICES.replace('"100"', '"1,00"'))).toThrow(/plan 1/);
+    expect(() => parsePricing(PRICES.replace('"100"', '"0"'))).toThrow(/zero/);
   });
 });
 
@@ -137,7 +138,7 @@ describe('the billing page', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
       plan: 'legal', billing_status: 'trial', card: null, charges: [], can_pay: false,
-      price: { amount: '573.85', vat: '74.85' },
+      price: { amount: '230.00', vat: '30.00' },
       gateway: { provider: 'fake', publishable_key: 'pk_fake', callback_url: 'https://app.talos.test/settings/billing?card=return', metadata: { client_id: CLIENT } },
     });
     expect((await inject('GET', '/api/billing', undefined, staff)).statusCode).toBe(403);
@@ -203,19 +204,19 @@ describe('when the trial ends', () => {
     const round = await runBilling(deps);
     expect(round.charged).toBe(1);
     const [ch] = await charges();
-    expect(ch).toMatchObject({ status: 'paid', reason: 'trial_end', amount: '573.85', vat_amount: '74.85', plan: 'legal', billing_period: 'monthly' });
+    expect(ch).toMatchObject({ status: 'paid', reason: 'trial_end', amount: '230.00', vat_amount: '30.00', plan: 'legal', billing_period: 'monthly' });
     expect(ch.period_start.getTime()).toBe(trialEnd.getTime());
     // Sent with our charge id as the provider's idempotency key, and the amount in halalas.
     const sent = gateway.charges.at(-1)!;
-    expect(sent).toMatchObject({ givenId: ch.id, amount: 57385n, metadata: { client_id: CLIENT, charge_id: ch.id } });
+    expect(sent).toMatchObject({ givenId: ch.id, amount: 23000n, metadata: { client_id: CLIENT, charge_id: ch.id } });
     const c = await client();
     expect(c).toMatchObject({ billing_status: 'active', next_charge_at: null });
     expect(c.paid_until.getTime()).toBe(ch.period_end.getTime());
     expect(await block()).toBeNull();
     const mail = mailer.take();
     expect(mail.map((m) => m.to)).toEqual(['owner@demo.example']);
-    expect(mail[0]!.subject).toContain('Payment received: SAR 573.85');
-    expect(mail[0]!.subject).toContain('573.85 ريال');
+    expect(mail[0]!.subject).toContain('Payment received: SAR 230.00');
+    expect(mail[0]!.subject).toContain('230.00 ريال');
     const note = (await admin.query(`SELECT data FROM app.notifications WHERE client_id = $1 AND data->>'event' = 'billing_paid'`, [CLIENT])).rows;
     expect(note).toHaveLength(1);
     // Nothing more is due: a second round charges nothing.
@@ -357,7 +358,7 @@ describe('notices and the founding month', () => {
     const mail = mailer.take().filter((m) => m.to === 'owner@demo.example');
     expect(mail).toHaveLength(1);
     expect(mail[0]!.subject).toMatch(/Your yearly plan renews on /);
-    expect(mail[0]!.text).toContain('5,738.50'); // the Legal plan's 4,990 a year, with 15% tax
+    expect(mail[0]!.text).toContain('2,300.00'); // the Legal plan's 2,000 a year, with 15% tax
   });
 });
 
@@ -377,7 +378,7 @@ describe("the provider's webhook", () => {
     const row = (await charges()).at(-1);
     expect(row.status).toBe('sending');
     // Meanwhile the provider did take it (the answer was lost on the way back).
-    const paid = await gateway.charge({ givenId: row.id, token, amount: 57385n, description: 'x', callbackUrl: 'x', metadata: { charge_id: row.id } });
+    const paid = await gateway.charge({ givenId: row.id, token, amount: 23000n, description: 'x', callbackUrl: 'x', metadata: { charge_id: row.id } });
     const ev = event({ data: { id: paid.id, metadata: { charge_id: row.id, client_id: CLIENT } } });
     const res = await app.inject({ method: 'POST', url: '/webhooks/moyasar', payload: ev });
     expect(res.json()).toEqual({ received: 1 });
@@ -426,13 +427,13 @@ describe('the Moyasar client', () => {
   const mk = () => new MoyasarGateway({ secretKey: 'sk_test_abc', publishableKey: 'pk_test_abc', apiUrl: url, timeoutMs: 2000 });
 
   it('charges a token with the secret key, our id as given_id and the amount in halalas', async () => {
-    answer = { status: 201, body: { id: 'pay_1', status: 'paid', amount: 57385, currency: 'SAR', metadata: { charge_id: 'c1' } } };
-    const p = await mk().charge({ givenId: 'c1', token: 'token_abcdefgh', amount: 57385n, description: 'd', callbackUrl: 'https://a.test/b', metadata: { charge_id: 'c1' } });
-    expect(p).toMatchObject({ id: 'pay_1', status: 'paid', amount: 57385n });
+    answer = { status: 201, body: { id: 'pay_1', status: 'paid', amount: 12345, currency: 'SAR', metadata: { charge_id: 'c1' } } };
+    const p = await mk().charge({ givenId: 'c1', token: 'token_abcdefgh', amount: 12345n, description: 'd', callbackUrl: 'https://a.test/b', metadata: { charge_id: 'c1' } });
+    expect(p).toMatchObject({ id: 'pay_1', status: 'paid', amount: 12345n });
     const req = seen.at(-1)!;
     expect(req).toMatchObject({ method: 'POST', path: '/v1/payments', auth: `Basic ${Buffer.from('sk_test_abc:').toString('base64')}` });
     expect(JSON.parse(req.body)).toEqual({
-      given_id: 'c1', amount: 57385, currency: 'SAR', description: 'd', callback_url: 'https://a.test/b',
+      given_id: 'c1', amount: 12345, currency: 'SAR', description: 'd', callback_url: 'https://a.test/b',
       metadata: { charge_id: 'c1' }, source: { type: 'token', token: 'token_abcdefgh' },
     });
   });

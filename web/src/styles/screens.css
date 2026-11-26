@@ -2645,3 +2645,367 @@ input[type='time'] {
     stroke-dashoffset: 100;
   }
 }
+
+/* ------------------------------------------------------- billing (7.6) */
+
+.billing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  max-inline-size: 920px;
+}
+.billing-plan.is-stopped {
+  box-shadow: inset 0 3px 0 var(--red-500), var(--shadow-1);
+}
+.billing-plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4) var(--space-6);
+}
+.billing-plan-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.billing-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+}
+.billing-price {
+  display: grid;
+  justify-items: end;
+  text-align: end;
+  gap: 2px;
+}
+.billing-price-amount {
+  font-family: var(--font-figures, var(--font-display));
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.billing-price-per {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+.billing-price-tax {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+.billing-lines {
+  margin-block-start: var(--space-4);
+  color: var(--ink-2);
+}
+.billing-lines p {
+  margin: 0 0 var(--space-2);
+  max-inline-size: 68ch;
+}
+.billing-actions {
+  margin-block-start: var(--space-4);
+}
+
+/* Where the company is in its period: the one moment of motion on the page. */
+.period-line {
+  margin-block-start: var(--space-5);
+}
+.period-track {
+  position: relative;
+  block-size: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+}
+.period-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: var(--done);
+  border-radius: inherit;
+  background: var(--emerald-600);
+  transform-origin: left center;
+  animation: period-draw 0.9s var(--ease) both;
+}
+[dir='rtl'] .period-fill {
+  transform-origin: right center;
+}
+.period-now {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: var(--done);
+  inline-size: 14px;
+  block-size: 14px;
+  margin-inline-start: -7px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 3px solid var(--emerald-600);
+  transform: translateY(-50%);
+  animation: period-dot 0.3s var(--ease) 0.8s both;
+}
+.period-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-start: var(--space-2);
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+.period-left {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+@keyframes period-draw {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes period-dot {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.4);
+  }
+}
+
+/* The card */
+.billing-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-end: var(--space-4);
+}
+.billing-card-head .panel-title {
+  margin: 0;
+}
+.billing-card-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  align-items: flex-start;
+}
+.card-plate {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  grid-template-columns: 1fr auto;
+  inline-size: min(300px, 100%);
+  aspect-ratio: 1.586;
+  padding: 18px 20px;
+  border-radius: 14px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 92% 8%, transparent 0 30%, rgba(76, 199, 154, 0.28) 30.3% 30.9%, transparent 31.3%),
+    radial-gradient(circle at 92% 8%, transparent 0 44%, rgba(255, 255, 255, 0.07) 44.3% 44.8%, transparent 45.2%),
+    linear-gradient(160deg, var(--navy-800), var(--navy-950));
+  box-shadow: var(--shadow-2);
+}
+:root[data-theme='dark'] .card-plate:not(.is-empty) {
+  background-color: var(--navy-800);
+  border: 1px solid var(--navy-700);
+}
+.card-brand {
+  grid-column: 1;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.card-number {
+  grid-column: 1;
+  align-self: end;
+  font-family: var(--font-figures, var(--font-display));
+  font-size: var(--text-lg);
+  letter-spacing: 0.08em;
+}
+.card-exp {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+  font-size: var(--text-xs);
+  opacity: 0.8;
+}
+.card-plate.is-empty {
+  display: flex;
+  flex-direction: row;
+  aspect-ratio: auto;
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: none;
+  box-shadow: none;
+  border: 1.5px dashed var(--line-strong);
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+.card-plate.is-new {
+  animation: card-settle 0.5s var(--ease) both;
+}
+.card-check {
+  position: absolute;
+  inset-block-start: 14px;
+  inset-inline-end: 14px;
+  inline-size: 26px;
+  block-size: 26px;
+  fill: none;
+  stroke: var(--emerald-400);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 24;
+  animation: card-check 0.45s var(--ease) 0.4s both;
+}
+@keyframes card-settle {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes card-check {
+  from {
+    stroke-dashoffset: 24;
+  }
+}
+.card-form {
+  flex: 1 1 340px;
+  max-inline-size: 460px;
+  display: grid;
+  gap: var(--space-3);
+}
+.card-form-note {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+}
+.card-form-note svg {
+  flex: none;
+  margin-block-start: 2px;
+}
+.card-input-number {
+  font-family: var(--font-figures, var(--font-display));
+  letter-spacing: 0.05em;
+}
+
+/* Payments and cancelling */
+.billing-history .panel-title {
+  margin-block-end: var(--space-3);
+}
+.billing-why {
+  display: block;
+  margin-block-start: 4px;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+.billing-cancel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+.billing-cancel .panel-title {
+  margin: 0 0 var(--space-1);
+}
+.billing-cancel p {
+  margin: 0 0 var(--space-2);
+  max-inline-size: 60ch;
+}
+.btn-quiet-danger {
+  color: var(--red-700);
+}
+.btn-quiet-danger:hover:not(:disabled) {
+  border-color: var(--red-500);
+}
+:root[data-theme='dark'] .btn-quiet-danger {
+  color: #f29aa0;
+}
+.billing-confirming {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 500;
+}
+.spinner {
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 50%;
+  border: 2.5px solid var(--line);
+  border-block-start-color: var(--emerald-600);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* On every page: Talos stopped for a payment reason, or the trial ends soon. */
+.billing-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin-block-end: var(--space-5);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--amber-100);
+  color: var(--amber-700);
+  font-weight: 500;
+}
+.billing-banner.is-stopped {
+  background: var(--red-100);
+  color: var(--red-700);
+}
+:root[data-theme='dark'] .billing-banner {
+  background: rgba(201, 138, 11, 0.16);
+  color: #f1c768;
+}
+:root[data-theme='dark'] .billing-banner.is-stopped {
+  background: rgba(207, 58, 68, 0.18);
+  color: #f29aa0;
+}
+
+@media (max-width: 640px) {
+  .billing-price {
+    justify-items: start;
+    text-align: start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .period-fill,
+  .period-now,
+  .card-plate.is-new,
+  .card-check {
+    animation: none;
+  }
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+.billing-table td,
+.billing-table th {
+  white-space: nowrap;
+}
+/* The notices above a page line up with the page's own edges. */
+.billing-banner,
+.setup-banner {
+  max-inline-size: calc(1320px - 2 * var(--space-6));
+  margin: var(--space-5) max(var(--space-6), calc((100% - 1320px) / 2 + var(--space-6))) 0;
+}
+@media (max-width: 860px) {
+  .billing-banner,
+  .setup-banner {
+    margin-inline: var(--space-4);
+  }
+}

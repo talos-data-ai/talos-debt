@@ -16,7 +16,95 @@ export type Language = 'ar' | 'en' | 'ur' | 'bn' | 'hi';
 
 export interface Me {
   user: { id: string; fullName: string; role: Role };
-  client: { id: string; legal_name: string; trade_name: string | null; sector: string | null; plan: string | null; status: string } | null;
+  client:
+    | ({ id: string; legal_name: string; trade_name: string | null; sector: string | null; plan: string | null; status: string } & Partial<MeBilling>)
+    | null;
+}
+
+// ------------------------------------------------------------------ billing (7.6)
+
+export type BillingStatus = 'trial' | 'active' | 'unpaid' | 'cancelled';
+/** Why Talos may not message the company's debtors now (app.client_messaging_block). */
+export type ClientBlock = 'setup_not_finished' | 'account_not_active' | 'no_authorization' | 'payment_needed' | 'trial_ended' | 'subscription_ended';
+
+/** What every page needs to show a billing notice. */
+export interface MeBilling {
+  billing_status: BillingStatus;
+  block: ClientBlock | null;
+  free_until: string | null;
+  paid_until: string | null;
+  cancel_at_period_end: boolean;
+  has_card: boolean;
+}
+
+export interface BillingCard {
+  brand: string | null;
+  last_four: string;
+  exp_month: number | null;
+  exp_year: number | null;
+}
+
+export interface BillingCharge {
+  id: string;
+  reason: 'trial_end' | 'renewal' | 'retry' | 'pay_now';
+  plan: 'follow_up' | 'legal' | 'najiz';
+  billing_period: 'monthly' | 'yearly';
+  amount: Money;
+  vat_amount: Money;
+  period_start: string;
+  period_end: string;
+  status: 'sending' | 'paid' | 'failed';
+  failure_code: string | null;
+  failure_message: string | null;
+  created_at: string;
+  brand: string | null;
+  last_four: string | null;
+}
+
+export interface BillingGateway {
+  provider: 'moyasar' | 'fake';
+  publishable_key: string;
+  tokens_url: string;
+  callback_url: string;
+  metadata: Record<string, string>;
+}
+
+export interface Billing {
+  plan: 'follow_up' | 'legal' | 'najiz';
+  billing_period: 'monthly' | 'yearly';
+  billing_status: BillingStatus;
+  trial_ends_at: string | null;
+  founding_member: boolean;
+  free_until: string | null;
+  paid_until: string | null;
+  next_charge_at: string | null;
+  cancel_at_period_end: boolean;
+  cancelled_at: string | null;
+  block: ClientBlock | null;
+  /** One period, tax included. Null until prices are set. */
+  price: { amount: Money; vat: Money; net: Money } | null;
+  card: BillingCard | null;
+  charges: BillingCharge[];
+  /** A payment is due now and a card is saved. */
+  can_pay: boolean;
+  /** Null until payments are set up. */
+  gateway: BillingGateway | null;
+}
+
+/** Typed in the browser and sent straight to the payment provider, never to Talos. */
+export interface CardInput {
+  name: string;
+  number: string;
+  month: number;
+  /** Two digits. */
+  year: number;
+  cvc: string;
+}
+
+export interface CardResult {
+  card: BillingCard;
+  /** Present when a payment was due and was taken (or is being checked). */
+  payment?: 'paid' | 'pending';
 }
 
 export interface Totals {
@@ -166,7 +254,8 @@ export interface NotificationData {
   event?:
     | 'receipt' | 'dispute' | 'needs_reply' | 'reply_held' | 'legal_ready' | 'replied_after_last'
     | 'promise_broken' | 'promise_partly' | 'not_sent' | 'send_failed' | 'maybe_not_sent' | 'summary'
-    | 'najiz_filed' | 'najiz_stopped' | 'najiz_status';
+    | 'najiz_filed' | 'najiz_stopped' | 'najiz_status' | 'setup_done'
+    | 'billing_paid' | 'billing_failed' | 'trial_ending' | 'trial_ended' | 'renewal_soon' | 'subscription_cancelled' | 'subscription_ended';
   name?: string;
   ref?: string | null;
   amount?: string;

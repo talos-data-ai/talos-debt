@@ -158,6 +158,7 @@ export function Shell() {
               </Link>
             </div>
           )}
+          <BillingBanner />
           <Outlet />
         </main>
       </div>
@@ -186,5 +187,40 @@ function SearchBox() {
         aria-label={t('search.label')}
       />
     </form>
+  );
+}
+
+/**
+ * When Talos has stopped for a payment reason, every page says so, with the
+ * way back. Owners and admins go to billing; others are told whom to ask.
+ * A trial ending within 3 days with no card gets a quieter note.
+ */
+function BillingBanner() {
+  const { t, formatDate } = useI18n();
+  const me = useMe();
+  const location = useLocation();
+  const c = me.data?.client;
+  if (!c || location.pathname.startsWith('/settings/billing')) return null;
+  const canPay = me.data?.user.role === 'owner' || me.data?.user.role === 'admin';
+  const stopped = c.block === 'payment_needed' || c.block === 'trial_ended' || c.block === 'subscription_ended';
+  const soon =
+    !stopped && c.billing_status === 'trial' && !c.has_card && c.free_until &&
+    new Date(c.free_until).getTime() - Date.now() < 3 * 86_400_000 && new Date(c.free_until).getTime() > Date.now();
+  if (!stopped && !soon) return null;
+  const text = stopped
+    ? t(`billing.banner.${c.block}` as MessageKey)
+    : t('billing.banner.trialEnding', { date: formatDate(c.free_until!, { day: 'numeric', month: 'long' }) });
+  return (
+    <div className={`billing-banner${stopped ? ' is-stopped' : ''}`} role={stopped ? 'alert' : 'status'}>
+      <span>
+        {text}
+        {!canPay && <> {t('billing.banner.askOwner')}</>}
+      </span>
+      {canPay && (
+        <Link to="/settings/billing" className="btn btn-primary btn-small">
+          {t('billing.banner.cta')}
+        </Link>
+      )}
+    </div>
   );
 }

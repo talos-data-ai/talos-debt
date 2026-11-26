@@ -6,9 +6,10 @@ import type { FollowUpRules, Role, Template, User } from '../api/types';
 import { Empty, ErrorState, Initials, Loading } from '../components/bits';
 import { Dialog, Field, FormError, errorText, useToast } from '../components/ui';
 import { useI18n, type MessageKey } from '../i18n';
+import { BillingTab } from './Billing';
 
-type Tab = 'rules' | 'team' | 'templates';
-const TABS: Tab[] = ['rules', 'team', 'templates'];
+type Tab = 'rules' | 'team' | 'templates' | 'billing';
+const ALL_TABS: Tab[] = ['rules', 'team', 'templates', 'billing'];
 const ROLES: Role[] = ['owner', 'admin', 'staff', 'viewer'];
 /** Saudi working week first: Sunday to Saturday. */
 const DAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -17,7 +18,10 @@ export function SettingsPage() {
   const { t } = useI18n();
   const params = useParams();
   const navigate = useNavigate();
-  const tab: Tab = TABS.includes(params.tab as Tab) ? (params.tab as Tab) : 'rules';
+  const me = useMe();
+  // Billing is for owners and admins only (the API checks again).
+  const TABS = ALL_TABS.filter((x) => x !== 'billing' || me.data?.user.role === 'owner' || me.data?.user.role === 'admin');
+  const tab: Tab = ALL_TABS.includes(params.tab as Tab) ? (params.tab as Tab) : 'rules';
 
   const onKey = (e: KeyboardEvent) => {
     const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
@@ -50,7 +54,7 @@ export function SettingsPage() {
         ))}
       </div>
       <div role="tabpanel" id={`spanel-${tab}`} aria-labelledby={`stab-${tab}`} className="tab-panel">
-        {tab === 'rules' ? <RulesForm /> : tab === 'team' ? <Team /> : <Templates />}
+        {tab === 'rules' ? <RulesForm /> : tab === 'team' ? <Team /> : tab === 'billing' ? <BillingTab /> : <Templates />}
       </div>
     </div>
   );
