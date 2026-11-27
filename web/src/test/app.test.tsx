@@ -7,7 +7,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../App';
-import { demoBilling, demoSource } from '../api/demo';
+import { demoBilling, demoInvoices, demoSource } from '../api/demo';
 import { ApiError, type DataSource } from '../api/source';
 import type { Me } from '../api/types';
 import { cleanAmount } from '../components/actions';
@@ -959,6 +959,27 @@ describe('billing (7.6)', () => {
       renderAt('/settings/billing', demoSource, lang);
       expect(await screen.findByText(tr('billing.card.none'))).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: tr('settings.tab.billing') })).toHaveAttribute('aria-selected', 'true');
+      // Every payment gets a tax invoice, so the national address comes first (7.8).
+      expect(await screen.findByText(tr('billing.details.needed'))).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: tr('billing.details.save') }));
+      expect(screen.getAllByText(tr('billing.details.required'))).toHaveLength(5);
+      await user.type(screen.getByLabelText(tr('billing.details.building')), '77a88');
+      expect(screen.getByLabelText(tr('billing.details.building'))).toHaveValue('7788');
+      await user.type(screen.getByLabelText(tr('billing.details.postal')), '2343');
+      await user.type(screen.getByLabelText(tr('billing.details.street')), 'Prince Sultan Road');
+      await user.type(screen.getByLabelText(tr('billing.details.district')), 'Al Rawdah');
+      await user.type(screen.getByLabelText(tr('billing.details.city')), 'Jeddah');
+      await user.type(screen.getByLabelText(tr('billing.details.vat')), '123');
+      await user.click(screen.getByRole('button', { name: tr('billing.details.save') }));
+      expect(await screen.findByText(tr('billing.details.badPostal'))).toBeInTheDocument();
+      expect(screen.getByText(tr('billing.details.badVat'))).toBeInTheDocument();
+      await user.type(screen.getByLabelText(tr('billing.details.postal')), '5');
+      await user.clear(screen.getByLabelText(tr('billing.details.vat')));
+      await user.click(screen.getByRole('button', { name: tr('billing.details.save') }));
+      expect(await screen.findByText(tr('billing.details.saved'))).toBeInTheDocument();
+      expect(await screen.findByText(tr('billing.details.vatNone'))).toBeInTheDocument();
+      expect(screen.queryByText(tr('billing.details.needed'))).not.toBeInTheDocument();
+
       await user.click(screen.getByRole('button', { name: tr('billing.card.add') }));
       await user.click(screen.getByRole('button', { name: tr('billing.form.submit') }));
       expect(await screen.findByText(tr('billing.form.badNumber'))).toBeInTheDocument();
@@ -975,6 +996,47 @@ describe('billing (7.6)', () => {
       expect(demoBilling.state.charges).toHaveLength(0);
     });
   }
+
+  for (const lang of ['en', 'ar'] as const) {
+    const tr = lang === 'en' ? en : ar;
+    it(`every payment has its tax invoice to download, and the details printed on it (${lang})`, async () => {
+      demoBilling.set('active');
+      const user = userEvent.setup();
+      renderAt('/settings/billing', demoSource, lang);
+      const panel = (await screen.findByRole('heading', { name: tr('billing.invoices.title') })).closest('section')!;
+      expect(within(panel).getByText('TLS-000001')).toBeInTheDocument();
+      expect(within(panel).getByText('TLS-000002')).toBeInTheDocument();
+      expect(within(panel).getAllByText(tr('billing.invoices.ready'))).toHaveLength(2);
+      await user.click(within(panel).getByRole('button', { name: tr('billing.invoices.download', { number: 'TLS-000002', format: 'PDF' }) }));
+      expect(await screen.findByText(tr('billing.invoices.sample'))).toBeInTheDocument();
+
+      const details = screen.getByRole('heading', { name: tr('billing.details.title') }).closest('section')!;
+      expect(within(details).getByText('310000000000003')).toBeInTheDocument();
+      expect(within(details).getByText('23435')).toBeInTheDocument();
+      await user.click(within(details).getByRole('button', { name: tr('billing.details.edit') }));
+      expect(within(details).getByLabelText(tr('billing.details.building'))).toHaveValue('7788');
+      await user.click(within(details).getByRole('button', { name: tr('common.cancel') }));
+      expect(within(details).queryByLabelText(tr('billing.details.building'))).not.toBeInTheDocument();
+    });
+  }
+
+  it('an invoice still with ZATCA cannot be downloaded yet', async () => {
+    demoBilling.set('active');
+    demoInvoices.lastWaiting = true;
+    renderAt('/settings/billing');
+    const panel = (await screen.findByRole('heading', { name: en('billing.invoices.title') })).closest('section')!;
+    expect(await within(panel).findByText(en('billing.invoices.waiting'))).toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: en('billing.invoices.download', { number: 'TLS-000002', format: 'PDF' }) })).not.toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: en('billing.invoices.download', { number: 'TLS-000001', format: 'PDF' }) })).toBeInTheDocument();
+  });
+
+  it('invoice notifications read in both languages', () => {
+    const n = { id: 'i1', kind: 'system' as const, title: 'x', target_table: 'billing', target_id: null, read_at: null, created_at: '2026-11-27T10:00:00Z', data: { event: 'invoice_ready' as const, number: 'TLS-000001', amount: '230.00' } };
+    expect(notificationText(n, (k, v) => translate('en', k, v))).toBe(en('note.invoice_ready', { number: 'TLS-000001' }));
+    expect(notificationText(n, (k, v) => translate('ar', k, v))).toBe(ar('note.invoice_ready', { number: 'TLS-000001' }));
+    const c = { ...n, data: { event: 'credit_note_ready' as const, number: 'TLS-CN-000003', amount: '115.00' } };
+    expect(notificationText(c, (k, v) => translate('en', k, v))).toBe('Credit note TLS-CN-000003: SAR 115 refunded');
+  });
 
   it('when a payment failed, every page says Talos stopped, and the owner can pay at once', async () => {
     demoBilling.set('unpaid');

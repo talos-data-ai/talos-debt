@@ -93,6 +93,26 @@ const schema = z.object({
   PRICING_FILE: z.string().optional(),
   PRICING_JSON: z.string().optional(),
 
+  // Talos's own tax invoices (7.8). Invoices are made only once Talos's VAT number is set.
+  // ZATCA_MODE: 'off' makes the invoices without sending them to ZATCA (before Talos is
+  // connected to Fatoora); 'fake' is ZATCA in memory (development and tests); 'sandbox' and
+  // 'simulation' are ZATCA's test systems; 'core' is the real one, production only.
+  ZATCA_MODE: z.enum(['off', 'fake', 'sandbox', 'simulation', 'core']).default('off'),
+  // The production CSID from onboarding (`npm run zatca:onboard`): the token and its secret.
+  ZATCA_CSID_TOKEN: z.string().optional(),
+  ZATCA_CSID_SECRET: z.string().optional(),
+  ZATCA_API_URL: z.url().optional(),
+  // The seller printed on every invoice: Talos's establishment, as registered for VAT.
+  SELLER_NAME: z.string().optional(),
+  SELLER_VAT_NUMBER: z.string().regex(/^3\d{13}3$/, 'must have 15 digits and start and end with 3').optional().or(z.literal('').transform(() => undefined)),
+  SELLER_CR: z.string().regex(/^[A-Za-z0-9]{1,20}$/).optional().or(z.literal('').transform(() => undefined)),
+  SELLER_BUILDING: z.string().regex(/^\d{4}$/, 'must have 4 digits').optional().or(z.literal('').transform(() => undefined)),
+  SELLER_STREET: z.string().optional(),
+  SELLER_DISTRICT: z.string().optional(),
+  SELLER_CITY: z.string().optional(),
+  SELLER_POSTAL: z.string().regex(/^\d{5}$/, 'must have 5 digits').optional().or(z.literal('').transform(() => undefined)),
+  INVOICE_PREFIX: z.string().regex(/^[A-Z]{2,6}$/).default('TLS'),
+
   // Najiz worker (Phase 5.4, `npm run najiz`).
   NAJIZ_URL: z.url().default('https://najiz.sa'),
   // How long the owner has to choose the number in the Nafath app.
@@ -180,6 +200,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       throw new Error(`Moyasar ${mode} keys (sk_${mode}_, pk_${mode}_) are required ${mode === 'live' ? 'in production' : 'outside production'}.`);
     }
   }
+  checkInvoicing(config);
   if (config.PAYMENT_DRIVER !== 'none' && !config.PRICING_FILE && !config.PRICING_JSON) {
     throw new Error('PRICING_FILE is required when payments are on (PAYMENT_DRIVER).');
   }
@@ -187,4 +208,26 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error('WHATSAPP_APP_SECRET is required in production to check webhook signatures.');
   }
   return config;
+}
+
+const SELLER_FIELDS = ['SELLER_NAME', 'SELLER_CR', 'SELLER_BUILDING', 'SELLER_STREET', 'SELLER_DISTRICT', 'SELLER_CITY', 'SELLER_POSTAL'] as const;
+
+/** Tax invoices (7.8): only with all of Talos's details, and only the real ZATCA in production. */
+function checkInvoicing(config: Config) {
+  const prod = config.NODE_ENV === 'production';
+  if (prod && !['off', 'core'].includes(config.ZATCA_MODE)) {
+    throw new Error(`ZATCA_MODE=${config.ZATCA_MODE} is not allowed in production: use off or core.`);
+  }
+  if (!prod && config.ZATCA_MODE === 'core') {
+    throw new Error('ZATCA_MODE=core sends real tax invoices and is allowed only in production.');
+  }
+  if (config.SELLER_VAT_NUMBER) {
+    const missing = SELLER_FIELDS.filter((k) => !config[k]?.trim());
+    if (missing.length) throw new Error(`Tax invoices need all of Talos's details: ${missing.join(', ')} missing.`);
+  } else if (config.ZATCA_MODE !== 'off') {
+    throw new Error(`ZATCA_MODE=${config.ZATCA_MODE} needs SELLER_VAT_NUMBER and the other SELLER_ details.`);
+  }
+  if (['sandbox', 'simulation', 'core'].includes(config.ZATCA_MODE) && (!config.ZATCA_CSID_TOKEN || !config.ZATCA_CSID_SECRET)) {
+    throw new Error(`ZATCA_MODE=${config.ZATCA_MODE} needs ZATCA_CSID_TOKEN and ZATCA_CSID_SECRET (npm run zatca:onboard).`);
+  }
 }

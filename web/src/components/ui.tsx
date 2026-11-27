@@ -104,6 +104,7 @@ const KNOWN_ERRORS = [
   'najiz_busy', 'najiz_check_first', 'company_exists', 'nothing_to_check', 'najiz_details_missing', 'already_approved', 'note_in_use', 'number_in_use', 'nothing_owed', 'not_approved', 'no_instrument',
   'setup_not_finished', 'account_not_active', 'no_authorization', 'payment_needed', 'trial_ended', 'subscription_ended',
   'nothing_due', 'payment_in_progress', 'no_card', 'payments_not_configured', 'card_not_confirmed', 'card_refused', 'card_not_found', 'card_invalid',
+  'invoice_details_missing',
 ] as const;
 
 /**

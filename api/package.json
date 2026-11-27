@@ -12,7 +12,8 @@
     "scheduler:start": "node dist/src/scheduler/main.js",
     "najiz": "tsx src/najiz/main.ts",
     "najiz:start": "node dist/src/najiz/main.js",
-    "moyasar:sandbox": "tsx scripts/moyasar-sandbox.ts"
+    "moyasar:sandbox": "tsx scripts/moyasar-sandbox.ts",
+    "zatca:onboard": "tsx scripts/zatca-onboard.ts"
   },
   "private": "true",
   "type": "module",
@@ -29,14 +30,18 @@
     "pdf-lib": "^1.17.1",
     "pg": "^8.23.1",
     "playwright": "^1.63.0",
+    "qrcode": "^1.5.4",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
+    "@types/qrcode": "^1.5.6",
+    "@xmldom/xmldom": "^0.9.12",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "xml-crypto": "^6.4.0"
   },
   "overrides": {
     "exceljs": {

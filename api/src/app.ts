@@ -25,6 +25,8 @@ import type { BillingDeps } from './billing/billing.js';
 import type { PaymentGateway } from './billing/gateway.js';
 import { loadPricing, type Pricing } from './billing/pricing.js';
 import { createGateway } from './billing/setup.js';
+import { createZatca, type ZatcaClient } from './billing/zatca/client.js';
+import { invoiceRoutes } from './routes/invoices.js';
 import { createMailer, type Mailer } from './login/mailer.js';
 import { loginRoutes, type RateLimiter } from './login/routes.js';
 import { authenticate } from './login/session.js';
@@ -57,6 +59,8 @@ export interface AppDeps {
   gateway?: PaymentGateway;
   /** Prices; default from PRICING_FILE. */
   pricing?: Pricing | null;
+  /** Tax invoices (7.8): ZATCA, or null to make invoices without sending them. Default from ZATCA_MODE. */
+  zatca?: ZatcaClient | null;
 }
 
 export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): FastifyInstance {
@@ -103,7 +107,8 @@ export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): Fas
   // Subscription payments (7.6).
   const gateway = deps.gateway ?? createGateway(config);
   const pricing = deps.pricing !== undefined ? deps.pricing : loadPricing(config);
-  const billing: BillingDeps = { pool, workerPool: deps.workerPool, config, gateway, pricing, mailer, now };
+  const zatca = deps.zatca !== undefined ? deps.zatca : createZatca(config);
+  const billing: BillingDeps = { pool, workerPool: deps.workerPool, config, gateway, pricing, mailer, zatca, now };
   if (gateway?.name === 'fake' && config.NODE_ENV !== 'production') {
     app.register(async (open) => fakeGatewayRoutes(open));
   }
@@ -129,6 +134,7 @@ export function buildApp(config: Config, pool: pg.Pool, deps: AppDeps = {}): Fas
     najizRoutes(api, pool);
     onboardingRoutes(api, { pool, storage });
     billingRoutes(api, billing);
+    invoiceRoutes(api, { ...billing, pdf });
   });
 
   // Meta's webhook: no user login; requests are checked by signature instead.

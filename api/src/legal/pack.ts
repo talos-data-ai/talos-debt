@@ -22,7 +22,7 @@ const require = createRequire(import.meta.url);
 const font = (file: string) =>
   readFileSync(require.resolve(`@fontsource/ibm-plex-sans-arabic/files/${file}`)).toString('base64');
 let fonts: string | null = null;
-function fontFaces(): string {
+export function fontFaces(): string {
   fonts ??= [
     ['arabic-400', 400], ['arabic-600', 600], ['latin-400', 400], ['latin-600', 600],
   ].map(([f, w]) => `@font-face{font-family:'Plex Arabic';font-weight:${w};src:url(data:font/woff2;base64,${font(`ibm-plex-sans-arabic-${f}-normal.woff2`)}) format('woff2')}`)

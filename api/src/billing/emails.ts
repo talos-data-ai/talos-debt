@@ -6,7 +6,17 @@ import type { Mail } from '../login/mailer.js';
  * text; dates are shown in the company's time zone with Western digits.
  */
 
-export type BillingEmailKind = 'trial_ending' | 'trial_ended' | 'paid' | 'failed' | 'renewal_soon' | 'cancelled' | 'ended';
+export type BillingEmailKind =
+  | 'trial_ending'
+  | 'trial_ended'
+  | 'paid'
+  | 'failed'
+  | 'renewal_soon'
+  | 'cancelled'
+  | 'ended'
+  | 'invoice_ready'
+  | 'credit_note_ready'
+  | 'invoice_details_needed';
 
 export interface BillingEmailFacts {
   link: string;
@@ -24,15 +34,17 @@ export interface BillingEmailFacts {
   /** Next automatic try after a failed payment. */
   retryAt?: Date | null;
   reason?: string | null;
+  /** A tax invoice or credit note number, for example TLS-000012. */
+  number?: string;
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
-const PLAN = {
+export const PLAN = {
   ar: { follow_up: 'المتابعة', legal: 'القانونية', najiz: 'ناجز' },
   en: { follow_up: 'Follow-up', legal: 'Legal', najiz: 'Najiz' },
 };
-const PERIOD = { ar: { monthly: 'شهري', yearly: 'سنوي' }, en: { monthly: 'monthly', yearly: 'yearly' } };
+export const PERIOD = { ar: { monthly: 'شهري', yearly: 'سنوي' }, en: { monthly: 'monthly', yearly: 'yearly' } };
 const BRAND: Record<string, string> = { mada: 'mada', visa: 'Visa', master: 'Mastercard', mastercard: 'Mastercard', amex: 'American Express' };
 
 /** "12,500.00": grouped from the text, never as a number. */
@@ -66,6 +78,48 @@ export function billingEmail(to: string, kind: BillingEmailKind, f: BillingEmail
 
   type T = { subject: string; body: string[]; button: string };
   const texts: Record<BillingEmailKind, { ar: T; en: T }> = {
+    invoice_ready: {
+      ar: {
+        subject: `فاتورتك الضريبية ${f.number ?? ''} جاهزة`,
+        body: [`فاتورتك الضريبية رقم ${f.number ?? ''} بمبلغ ${money('ar')} جاهزة للتنزيل من الإعدادات ثم الفوترة.`],
+        button: 'عرض الفواتير',
+      },
+      en: {
+        subject: `Your tax invoice ${f.number ?? ''} is ready`,
+        body: [`Your tax invoice ${f.number ?? ''} for ${money('en')} is ready to download in Settings, then Billing.`],
+        button: 'View invoices',
+      },
+    },
+    credit_note_ready: {
+      ar: {
+        subject: `إشعار دائن ${f.number ?? ''}`,
+        body: [`أعدنا لك ${money('ar')}. إشعار الدائن رقم ${f.number ?? ''} جاهز للتنزيل من الإعدادات ثم الفوترة.`],
+        button: 'عرض الفواتير',
+      },
+      en: {
+        subject: `Credit note ${f.number ?? ''}`,
+        body: [`We have refunded ${money('en')}. Credit note ${f.number ?? ''} is ready to download in Settings, then Billing.`],
+        button: 'View invoices',
+      },
+    },
+    invoice_details_needed: {
+      ar: {
+        subject: 'أكمل عنوان شركتك لفاتورتك الضريبية',
+        body: [
+          'استلمنا دفعتك، لكن الفاتورة الضريبية تحتاج العنوان الوطني لشركتك.',
+          'أضفه من الإعدادات ثم الفوترة، وتصلك الفاتورة بعدها مباشرة.',
+        ],
+        button: 'إضافة العنوان',
+      },
+      en: {
+        subject: "Add your company's address for your tax invoice",
+        body: [
+          "We have your payment, but the tax invoice needs your company's national address.",
+          'Add it in Settings, then Billing, and the invoice follows straight away.',
+        ],
+        button: 'Add the address',
+      },
+    },
     trial_ending: {
       ar: {
         subject: `تنتهي تجربتك المجانية في ${day('ar', f.date)}`,

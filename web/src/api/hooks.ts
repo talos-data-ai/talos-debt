@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 import type { DataSource, DebtQuery, DisputeDecision, PaymentInput } from './source';
-import type { ApproveFilingInput, NajizUploadKind, DocType, FollowUpRules, LegalStatusInput, NajizDetailsInput, NewDebtorInput, OnboardingFileKind, OnboardingInput, User } from './types';
+import type { ApproveFilingInput, InvoiceDetailsInput, NajizUploadKind, DocType, FollowUpRules, LegalStatusInput, NajizDetailsInput, NewDebtorInput, OnboardingFileKind, OnboardingInput, User } from './types';
 
 export const SourceContext = createContext<DataSource | null>(null);
 
@@ -52,6 +52,10 @@ export const useRules = () => {
 export const useBilling = (enabled = true) => {
   const s = useSource();
   return useQuery({ queryKey: ['billing'], queryFn: () => s.billing(), enabled });
+};
+export const useInvoices = (enabled = true) => {
+  const s = useSource();
+  return useQuery({ queryKey: ['invoices'], queryFn: () => s.invoices(), enabled });
 };
 export const useOnboarding = (enabled = true) => {
   const s = useSource();
@@ -139,3 +143,5 @@ export const useAddLegalStatus = () => useAction((s, a: { debtId: string; input:
 const BILLING_VIEWS = ['billing', 'me', 'notifications'];
 export const usePayNow = () => useAction((s, _: void) => s.payNow(), BILLING_VIEWS);
 export const useSetCancel = () => useAction((s, cancel: boolean) => s.setCancel(cancel), BILLING_VIEWS);
+export const useSaveInvoiceDetails = () =>
+  useAction((s, input: InvoiceDetailsInput) => s.saveInvoiceDetails(input), [...BILLING_VIEWS, 'invoices']);

@@ -127,7 +127,7 @@ if (webhookUrl) {
     http_method: 'post',
     url: webhookUrl,
     shared_secret: env.MOYASAR_WEBHOOK_SECRET,
-    events: ['payment_paid', 'payment_failed'],
+    events: ['payment_paid', 'payment_failed', 'payment_refunded'],
   });
   if (hook.status !== 200 && hook.status !== 201) fail(`adding the webhook answered ${hook.status}: ${JSON.stringify(hook.data).slice(0, 300)}`);
   ok(`webhook added (${String(hook.data.id)}), verified: ${String(hook.data.verified)}`);

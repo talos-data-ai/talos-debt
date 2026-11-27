@@ -777,8 +777,25 @@ await step('sign up in Arabic: one plan only, the account and the terms, then se
   // (the API's development stand-in here), never to Talos's own routes.
   await page.goto(`${APP}/settings/billing`);
   await page.getByText(t['billing.card.none']).waitFor();
+  // Tax invoices (7.8): the national address comes before the card, and is checked by the API too.
+  await page.getByText(t['billing.details.needed']).waitFor();
+  await page.getByText(t['billing.invoices.empty']).waitFor();
   await axe(page, 'billing ar trial');
   assert.deepEqual(await englishLeftInArabic(page), [], 'English left on the Arabic billing page');
+  const early = await page.request.post(`${APP}/api/billing/cards`, { headers: { 'x-talos': '1' }, data: { token: 'token_fake_visa_1111_paid_1230_aaaaaaaaaaaa' } });
+  assert.equal(early.status(), 409);
+  assert.equal((await early.json()).error, 'invoice_details_missing', 'a card is refused before the national address');
+  await page.getByLabel(t['billing.details.building']).fill('7788');
+  await page.getByLabel(t['billing.details.postal']).fill('23435');
+  await page.getByLabel(t['billing.details.street']).fill('شارع الأمير سلطان');
+  await page.getByLabel(t['billing.details.district']).fill('الروضة');
+  await page.getByLabel(t['billing.details.city']).fill('جدة');
+  await axe(page, 'billing ar invoice details');
+  await page.getByRole('button', { name: t['billing.details.save'] }).click();
+  await page.getByText(t['billing.details.saved']).first().waitFor();
+  const inv = await api('/api/billing/invoices');
+  assert.deepEqual(inv.missing, []);
+  assert.equal(inv.details.address_city, 'جدة');
   await page.getByRole('button', { name: t['billing.card.add'] }).click();
   const posts = [];
   page.on('request', (r) => {

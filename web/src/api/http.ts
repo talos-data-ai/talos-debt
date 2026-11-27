@@ -161,6 +161,9 @@ export const httpSource: DataSource = {
   confirmCard: (token) => request('POST', '/api/billing/cards/confirm', token ? { token } : {}),
   payNow: () => request('POST', '/api/billing/pay', {}),
   setCancel: (cancel) => request('POST', '/api/billing/cancel', { cancel }),
+  invoices: () => request('GET', '/api/billing/invoices'),
+  saveInvoiceDetails: (input) => request('PATCH', '/api/billing/details', input),
+  invoiceUrl: (id, format) => `/api/billing/invoices/${encodeURIComponent(id)}/${format}`,
 
   documents: async (debtorId) => (await request<{ items: DocumentInfo[] }>('GET', `/api/documents${qs({ debtor_id: debtorId })}`)).items,
   uploadDocument: async ({ debtorId, debtId, docType, file }) => {
