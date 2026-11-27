@@ -1,10 +1,10 @@
-import { Check, CreditCard, Lock } from 'lucide-react';
+import { Check, CreditCard, FileText, Lock } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError } from '../api/source';
 import { useQueryClient } from '@tanstack/react-query';
-import { useBilling, useMe, usePayNow, useSetCancel, useSource } from '../api/hooks';
-import type { Billing, BillingCharge, CardInput } from '../api/types';
+import { useBilling, useInvoices, useMe, usePayNow, useSaveInvoiceDetails, useSetCancel, useSource } from '../api/hooks';
+import type { Billing, BillingCharge, CardInput, InvoiceDetailsInput, InvoiceField, InvoiceItem, Invoices } from '../api/types';
 import { ErrorState, Loading } from '../components/bits';
 import { Dialog, Field, FormError, errorText, useToast } from '../components/ui';
 import { useI18n, type MessageKey } from '../i18n';
@@ -13,7 +13,8 @@ import { sitePage } from './SignUp';
 
 /**
  * Settings, then Billing (7.6): the plan and where the company is in its
- * period, the card, the payments, and cancelling. For owners and admins.
+ * period, the card, the payments, the tax invoices and the details printed
+ * on them (7.8), and cancelling. For owners and admins.
  *
  * The card form sends the card straight to the payment provider from the
  * browser; the API only ever gets a token. One moment of motion: the line of
@@ -31,6 +32,7 @@ export function BillingTab() {
   const role = me.data?.user.role;
   const allowed = role === 'owner' || role === 'admin';
   const billing = useBilling(allowed);
+  const invoices = useInvoices(allowed);
   const [params, setParams] = useSearchParams();
   const source = useSource();
   const qc = useQueryClient();
@@ -76,12 +78,18 @@ export function BillingTab() {
     );
   }
   const b = billing.data;
+  const inv = invoices.data?.enabled ? invoices.data : null;
+  // Before the national address is given, its form comes first: a card cannot be added without it.
+  const detailsFirst = inv !== null && inv.missing.length > 0;
   return (
     <div className="billing">
       <FormError message={returnError} />
       <PlanPanel b={b} />
+      {detailsFirst && <DetailsPanel inv={inv} />}
       <CardPanel b={b} justAdded={justAdded} />
       <History charges={b.charges} />
+      {inv && <InvoicesPanel inv={inv} />}
+      {inv && !detailsFirst && <DetailsPanel inv={inv} />}
       <CancelPanel b={b} />
     </div>
   );
@@ -451,6 +459,176 @@ function History({ charges }: { charges: BillingCharge[] }) {
             </tbody>
           </table>
         </div>
+      )}
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ tax invoices (7.8)
+
+function InvoicesPanel({ inv }: { inv: Invoices }) {
+  const { t, formatDate } = useI18n();
+  const source = useSource();
+  const toast = useToast();
+  const short = { day: 'numeric', month: 'short', year: 'numeric' } as const;
+  const file = (i: InvoiceItem, format: 'pdf' | 'xml') => {
+    const url = source.invoiceUrl(i.id, format);
+    const label = t('billing.invoices.download', { number: i.number, format: format.toUpperCase() });
+    return url ? (
+      <a className="link invoice-file" href={url} download aria-label={label}>{format.toUpperCase()}</a>
+    ) : (
+      <button type="button" className="link invoice-file" aria-label={label} onClick={() => toast(t('billing.invoices.sample'))}>
+        {format.toUpperCase()}
+      </button>
+    );
+  };
+  return (
+    <section className="panel billing-invoices" aria-labelledby="billing-invoices-title">
+      <h2 id="billing-invoices-title" className="panel-title">{t('billing.invoices.title')}</h2>
+      {inv.invoices.length === 0 ? (
+        <p className="muted">{t('billing.invoices.empty')}</p>
+      ) : (
+        <>
+          <div className="table-scroll">
+            <table className="table billing-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t('billing.invoices.number')}</th>
+                  <th scope="col">{t('billing.invoices.date')}</th>
+                  <th scope="col" className="num">{t('billing.invoices.amount')}</th>
+                  <th scope="col">{t('billing.invoices.state')}</th>
+                  <th scope="col">{t('billing.invoices.files')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inv.invoices.map((i) => (
+                  <tr key={i.id}>
+                    <td>
+                      <span className="invoice-number">
+                        <FileText size={15} aria-hidden="true" />
+                        <bdi dir="ltr">{i.number}</bdi>
+                      </span>
+                      {i.kind === 'credit_note' && i.original_number && (
+                        <span className="billing-why">{t('billing.invoices.creditNote', { number: i.original_number })}</span>
+                      )}
+                    </td>
+                    <td>{formatDate(i.issued_at, short)}</td>
+                    <td className="num">{i.kind === 'credit_note' ? `−${money(t, i.total_amount)}` : money(t, i.total_amount)}</td>
+                    <td>
+                      <span className={`badge badge-${i.state === 'ready' ? 'green' : 'amber'}`}>
+                        <span className="badge-dot" aria-hidden="true" />
+                        {t(`billing.invoices.${i.state}` as MessageKey)}
+                      </span>
+                    </td>
+                    <td>{i.state === 'ready' ? <span className="invoice-files">{file(i, 'pdf')}{file(i, 'xml')}</span> : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="field-hint">{t('billing.invoices.note')}</p>
+        </>
+      )}
+    </section>
+  );
+}
+
+const ADDRESS_FIELDS: InvoiceField[] = ['address_building', 'address_street', 'address_district', 'address_city', 'address_postal'];
+type DetailErrors = Partial<Record<InvoiceField | 'vat_number' | 'form', string>>;
+
+function DetailsPanel({ inv }: { inv: Invoices }) {
+  const { t, lang } = useI18n();
+  const d = inv.details;
+  const needed = inv.missing.length > 0;
+  const [editing, setEditing] = useState(needed);
+  const save = useSaveInvoiceDetails();
+  const toast = useToast();
+  const [f, setF] = useState<InvoiceDetailsInput>({
+    vat_number: d.vat_number ?? '',
+    address_building: d.address_building ?? '',
+    address_street: d.address_street ?? '',
+    address_district: d.address_district ?? '',
+    address_city: d.address_city ?? '',
+    address_postal: d.address_postal ?? '',
+  });
+  const [errors, setErrors] = useState<DetailErrors>({});
+  const set = (k: keyof InvoiceDetailsInput, v: string) => setF({ ...f, [k]: v });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const next: DetailErrors = {};
+    for (const k of ADDRESS_FIELDS) if (!f[k].trim()) next[k] = t('billing.details.required');
+    if (f.address_building && !/^\d{4}$/.test(f.address_building)) next.address_building = t('billing.details.badBuilding');
+    if (f.address_postal && !/^\d{5}$/.test(f.address_postal)) next.address_postal = t('billing.details.badPostal');
+    if (f.vat_number && !/^3\d{13}3$/.test(f.vat_number)) next.vat_number = t('billing.details.badVat');
+    setErrors(next);
+    if (Object.keys(next).length) return;
+    save.mutate(f, {
+      onSuccess: (r) => {
+        setEditing(false);
+        toast(r.issued > 0 ? t('billing.details.savedIssued') : t('billing.details.saved'));
+      },
+      onError: (err) => setErrors({ form: errorText(err, t) }),
+    });
+  };
+
+  const address = [d.address_building, d.address_street, d.address_district, d.address_city].filter(Boolean).join(lang === 'ar' ? '، ' : ', ');
+  const digits = (max: number) => (v: string) => v.replace(/\D/g, '').slice(0, max);
+  return (
+    <section className={`panel billing-details${needed ? ' is-needed' : ''}`} aria-labelledby="billing-details-title">
+      <div className="billing-card-head">
+        <h2 id="billing-details-title" className="panel-title">{t('billing.details.title')}</h2>
+        {!editing && (
+          <button type="button" className="btn btn-quiet" onClick={() => setEditing(true)}>{t('billing.details.edit')}</button>
+        )}
+      </div>
+      {needed ? <p className="callout">{t('billing.details.needed')}</p> : <p className="muted">{t('billing.details.lead')}</p>}
+      <dl className="details-list">
+        <div><dt>{t('billing.details.company')}</dt><dd><bdi>{d.legal_name}</bdi></dd></div>
+        <div><dt>{t('billing.details.cr')}</dt><dd><bdi dir="ltr">{d.cr_number}</bdi></dd></div>
+        {!editing && (
+          <>
+            <div><dt>{t('billing.details.vat')}</dt><dd>{d.vat_number ? <bdi dir="ltr">{d.vat_number}</bdi> : t('billing.details.vatNone')}</dd></div>
+            <div><dt>{t('billing.details.address')}</dt><dd><bdi>{address}</bdi> <bdi dir="ltr">{d.address_postal}</bdi></dd></div>
+          </>
+        )}
+      </dl>
+      {editing && (
+        <form className="details-form" onSubmit={submit} noValidate>
+          <fieldset>
+            <legend>{t('billing.details.address')}</legend>
+            <p className="field-hint">{t('billing.details.where')}</p>
+            <div className="form-row">
+              <Field label={t('billing.details.building')} hint={t('billing.details.buildingHint')} error={errors.address_building}>
+                {(p) => <input {...p} className="input-short" dir="ltr" inputMode="numeric" value={f.address_building} onChange={(e) => set('address_building', digits(4)(e.target.value))} />}
+              </Field>
+              <Field label={t('billing.details.postal')} hint={t('billing.details.postalHint')} error={errors.address_postal}>
+                {(p) => <input {...p} className="input-short" dir="ltr" inputMode="numeric" autoComplete="postal-code" value={f.address_postal} onChange={(e) => set('address_postal', digits(5)(e.target.value))} />}
+              </Field>
+            </div>
+            <Field label={t('billing.details.street')} error={errors.address_street}>
+              {(p) => <input {...p} autoComplete="address-line1" value={f.address_street} onChange={(e) => set('address_street', e.target.value)} />}
+            </Field>
+            <div className="form-row">
+              <Field label={t('billing.details.district')} error={errors.address_district}>
+                {(p) => <input {...p} value={f.address_district} onChange={(e) => set('address_district', e.target.value)} />}
+              </Field>
+              <Field label={t('billing.details.city')} error={errors.address_city}>
+                {(p) => <input {...p} autoComplete="address-level2" value={f.address_city} onChange={(e) => set('address_city', e.target.value)} />}
+              </Field>
+            </div>
+          </fieldset>
+          <Field label={t('billing.details.vat')} hint={t('billing.details.vatHint')} error={errors.vat_number}>
+            {(p) => <input {...p} dir="ltr" inputMode="numeric" value={f.vat_number} onChange={(e) => set('vat_number', digits(15)(e.target.value))} />}
+          </Field>
+          <FormError message={errors.form} />
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary" disabled={save.isPending}>{t('billing.details.save')}</button>
+            {!needed && (
+              <button type="button" className="btn btn-quiet" onClick={() => setEditing(false)} disabled={save.isPending}>{t('common.cancel')}</button>
+            )}
+          </div>
+        </form>
       )}
     </section>
   );

@@ -6,7 +6,7 @@ import type {
   OnboardingFileKind,
   OnboardingInput,
   SignUpInput,
-  Billing, BillingGateway, CardInput, CardResult,
+  Billing, BillingGateway, CardInput, CardResult, InvoiceDetailsInput, Invoices,
 } from './types';
 
 export interface DebtQuery {
@@ -99,6 +99,11 @@ export interface DataSource {
   confirmCard(token?: string): Promise<CardResult>;
   payNow(): Promise<{ payment: 'paid' | 'pending' }>;
   setCancel(cancel: boolean): Promise<{ ends_at: string | null }>;
+  /** Tax invoices (7.8): the company's invoices and the details printed on them. */
+  invoices(): Promise<Invoices>;
+  saveInvoiceDetails(input: InvoiceDetailsInput): Promise<Invoices & { issued: number }>;
+  /** Where to download an invoice, or null for sample data. */
+  invoiceUrl(id: string, format: 'pdf' | 'xml'): string | null;
 
   // Legal and Najiz (Phase 5)
   legal(): Promise<LegalRow[]>;

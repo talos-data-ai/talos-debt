@@ -91,6 +91,50 @@ export interface Billing {
   gateway: BillingGateway | null;
 }
 
+/** The company's details printed on its tax invoices (7.8). */
+export interface InvoiceDetails {
+  legal_name: string;
+  cr_number: string;
+  vat_number: string | null;
+  address_building: string | null;
+  address_street: string | null;
+  address_district: string | null;
+  address_city: string | null;
+  address_postal: string | null;
+}
+export type InvoiceField = 'address_building' | 'address_street' | 'address_district' | 'address_city' | 'address_postal';
+
+export interface InvoiceItem {
+  id: string;
+  kind: 'invoice' | 'credit_note';
+  number: string;
+  issued_at: string;
+  total_amount: Money;
+  vat_amount: Money;
+  net_amount: Money;
+  /** ready: cleared by ZATCA (or made before Talos is connected to it). waiting: being sent to ZATCA. checking: Talos is looking at it. */
+  state: 'ready' | 'waiting' | 'checking';
+  original_number: string | null;
+}
+
+export interface Invoices {
+  /** False until Talos issues tax invoices. */
+  enabled: boolean;
+  details: InvoiceDetails;
+  /** What is still needed before an invoice can be made. */
+  missing: InvoiceField[];
+  invoices: InvoiceItem[];
+}
+
+export interface InvoiceDetailsInput {
+  vat_number: string;
+  address_building: string;
+  address_street: string;
+  address_district: string;
+  address_city: string;
+  address_postal: string;
+}
+
 /** Typed in the browser and sent straight to the payment provider, never to Talos. */
 export interface CardInput {
   name: string;
@@ -255,12 +299,13 @@ export interface NotificationData {
     | 'receipt' | 'dispute' | 'needs_reply' | 'reply_held' | 'legal_ready' | 'replied_after_last'
     | 'promise_broken' | 'promise_partly' | 'not_sent' | 'send_failed' | 'maybe_not_sent' | 'summary'
     | 'najiz_filed' | 'najiz_stopped' | 'najiz_status' | 'setup_done'
-    | 'billing_paid' | 'billing_failed' | 'trial_ending' | 'trial_ended' | 'renewal_soon' | 'subscription_cancelled' | 'subscription_ended';
+    | 'billing_paid' | 'billing_failed' | 'trial_ending' | 'trial_ended' | 'renewal_soon' | 'subscription_cancelled' | 'subscription_ended'
+    | 'invoice_ready' | 'credit_note_ready' | 'invoice_rejected' | 'invoice_details_needed';
   name?: string;
   ref?: string | null;
   amount?: string;
   reminders?: number;
-  /** Najiz request number (najiz_filed, najiz_status). */
+  /** Najiz request number (najiz_filed, najiz_status), or a tax invoice number (invoice_ready...). */
   number?: string;
   /** The status read from Najiz, as Najiz writes it (najiz_status). */
   status?: string;

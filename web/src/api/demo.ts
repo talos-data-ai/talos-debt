@@ -11,7 +11,7 @@ import type {
   LegalCaseDetail, LegalEvent, LegalRow, LegalStage, NajizCaseStep, NajizField, NajizRun,
   Approvals, DebtorDetail, DebtRow, DebtStatus, Debtor, DocumentInfo, FollowUpRules, ImportReport, Language, Notification, Phone, Summary,
   Task, Template, TimelineEvent, User, WaitingReminder, Onboarding, OnboardingStep, FileLite,
-  Billing, BillingCharge, MeBilling,
+  Billing, BillingCharge, MeBilling, InvoiceDetails, InvoiceItem, Invoices,
 } from './types';
 
 const CLIENT = '11111111-1111-4111-8111-111111111111';
@@ -476,6 +476,13 @@ function billingFor(scenario: BillingScenario): Billing {
   }
 }
 
+/** Sample tax invoices (7.8): before demoBilling, which resets them when a state is chosen. */
+export const demoInvoices = {
+  addressGiven: false,
+  lastWaiting: false,
+  details: {} as Partial<InvoiceDetails>,
+};
+
 /** The sample company's billing. The prototype opens a state with #/settings/billing?billing=unpaid (also active, cancelling, ended). */
 export const demoBilling = {
   state: billingFor('active'),
@@ -484,6 +491,9 @@ export const demoBilling = {
   set(scenario: BillingScenario, asOwner = true) {
     this.state = billingFor(scenario);
     this.asOwner = asOwner;
+    demoInvoices.addressGiven = false;
+    demoInvoices.lastWaiting = false;
+    demoInvoices.details = {};
   },
 };
 if (typeof location !== 'undefined') {
@@ -495,6 +505,29 @@ const meBilling = (): MeBilling => {
   return { billing_status: b.billing_status, block: b.block, free_until: b.free_until, paid_until: b.paid_until, cancel_at_period_end: b.cancel_at_period_end, has_card: !!b.card };
 };
 const pendingCards = new Map<string, string>();
+
+// ---------------------------------------------------------------- tax invoices (7.8)
+
+const demoAddress = {
+  address_building: '7788', address_street: 'Prince Sultan Road', address_district: 'Al Rawdah', address_city: 'Jeddah', address_postal: '23435',
+};
+/** The sample company's invoices: one per paid payment. A trial company has no address yet. */
+function invoicesFor(b: Billing): Invoices {
+  const blank = { address_building: null, address_street: null, address_district: null, address_city: null, address_postal: null };
+  const hasAddress = b.billing_status !== 'trial' || demoInvoices.addressGiven;
+  const details: InvoiceDetails = {
+    legal_name: 'Al Nokhba Delivery Co.', cr_number: '4030000001', vat_number: hasAddress ? '310000000000003' : null,
+    ...(hasAddress ? demoAddress : blank), ...demoInvoices.details,
+  };
+  const paid = b.charges.filter((c) => c.status === 'paid').reverse();
+  const invoices: InvoiceItem[] = paid.map((c, i) => ({
+    id: `inv-${c.id}`, kind: 'invoice', number: `TLS-${String(i + 1).padStart(6, '0')}`, issued_at: c.created_at,
+    total_amount: c.amount, vat_amount: c.vat_amount, net_amount: fromHalalas(toHalalas(c.amount) - toHalalas(c.vat_amount)),
+    state: i === paid.length - 1 && demoInvoices.lastWaiting ? 'waiting' : 'ready', original_number: null,
+  }));
+  const missing = (['address_building', 'address_street', 'address_district', 'address_city', 'address_postal'] as const).filter((k) => !details[k]);
+  return { enabled: true, details, missing: [...missing], invoices: invoices.reverse() };
+}
 
 function demoPay(): 'paid' {
   const b = demoBilling.state;
@@ -579,6 +612,16 @@ export const demoSource: DataSource = {
             client: { id: CLIENT, legal_name: 'Al Nokhba Delivery Co.', trade_name: 'Al Nokhba Delivery', sector: 'logistics', plan: 'legal', status: 'active', ...meBilling() } },
     ),
   billing: () => pause(demoBilling.state),
+  invoices: () => pause(invoicesFor(demoBilling.state)),
+  saveInvoiceDetails: async (input) => {
+    await pause(null);
+    if (!/^\d{4}$/.test(input.address_building)) throw new ApiError(400, 'invalid', 'The building number has 4 digits', [{ field: 'address_building', message: 'The building number has 4 digits' }]);
+    if (!/^\d{5}$/.test(input.address_postal)) throw new ApiError(400, 'invalid', 'The postal code has 5 digits', [{ field: 'address_postal', message: 'The postal code has 5 digits' }]);
+    demoInvoices.addressGiven = true;
+    demoInvoices.details = { ...input, vat_number: input.vat_number || null };
+    return { ...invoicesFor(demoBilling.state), issued: 0 };
+  },
+  invoiceUrl: () => null,
   tokenizeCard: async (_gateway, card) => {
     await pause(null);
     if (!BRANDS[card.number]) throw new ApiError(400, 'card_invalid', 'Use one of the test cards');
@@ -586,7 +629,12 @@ export const demoSource: DataSource = {
     pendingCards.set(token, card.number);
     return { token, verifyUrl: `/settings/billing?card=return&id=${token}` };
   },
-  saveCard: done,
+  saveCard: async () => {
+    await pause(null);
+    if (invoicesFor(demoBilling.state).missing.length) {
+      throw new ApiError(409, 'invoice_details_missing', "Add your company's national address for its tax invoices first");
+    }
+  },
   confirmCard: async (token) => {
     await pause(null);
     const number = token ? pendingCards.get(token) : [...pendingCards.values()].at(-1);

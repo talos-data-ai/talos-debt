@@ -53,6 +53,10 @@ export function notificationText(n: Notification, t: I18n['t'], formatDate?: I18
     case 'renewal_soon':
     case 'subscription_cancelled':
     case 'subscription_ended':
+    case 'invoice_ready':
+    case 'credit_note_ready':
+    case 'invoice_rejected':
+    case 'invoice_details_needed':
       return t(`note.${event}`, vars);
     default:
       return n.title;

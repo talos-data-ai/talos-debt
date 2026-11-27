@@ -3009,3 +3009,71 @@ input[type='time'] {
     margin-inline: var(--space-4);
   }
 }
+
+/* Tax invoices and the details printed on them (7.8) */
+.billing-invoices .panel-title {
+  margin-block-end: var(--space-3);
+}
+.invoice-number {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+}
+.invoice-number svg {
+  color: var(--ink-3);
+}
+.invoice-files {
+  display: inline-flex;
+  gap: var(--space-3);
+}
+.invoice-file {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.billing-details.is-needed {
+  box-shadow: inset 0 3px 0 var(--amber-500, #d89614), var(--shadow-1);
+}
+.billing-details > p {
+  margin: 0 0 var(--space-4);
+  max-inline-size: 65ch;
+}
+.details-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0 0 var(--space-4);
+}
+.details-list dt {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  margin-block-end: 2px;
+}
+.details-list dd {
+  margin: 0;
+  font-weight: 500;
+}
+.details-form {
+  display: grid;
+  gap: var(--space-3);
+  max-inline-size: 560px;
+}
+.details-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.details-form legend {
+  font-weight: 600;
+  padding: 0;
+  margin-block-end: var(--space-1);
+}
+.details-form legend + .field-hint {
+  margin: 0;
+}
