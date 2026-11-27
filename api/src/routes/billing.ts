@@ -18,6 +18,7 @@ import {
   type ChargeRow,
 } from '../billing/billing.js';
 import { FAKE_CARDS, FakeGateway } from '../billing/gateway.js';
+import { buyerDetails, creditRefund, invoicingOn, missingForInvoice } from '../billing/invoices.js';
 import { priceFor } from '../billing/pricing.js';
 import { withTenant } from '../db.js';
 import { parseOr400 } from '../validation.js';
@@ -111,7 +112,14 @@ export function billingRoutes(app: FastifyInstance, deps: BillingDeps) {
     if (!body) return;
     if (!gateway) return reply.code(503).send({ error: 'payments_not_configured', message: 'Payments are not set up yet' });
     const user = req.user!;
-    const saved = await withTenant(pool, tenantOf(user), (db) => addPendingCard(deps, db, body.token, user.userId));
+    const saved = await withTenant(pool, tenantOf(user), async (db) => {
+      // Every payment gets a tax invoice (7.8), which needs the company's national address first.
+      if (invoicingOn(config) && missingForInvoice(await buyerDetails(db)).length) return 'details' as const;
+      return addPendingCard(deps, db, body.token, user.userId);
+    });
+    if (saved === 'details') {
+      return reply.code(409).send({ error: 'invoice_details_missing', message: "Add your company's national address for its tax invoices first" });
+    }
     if (!saved) return reply.code(409).send({ error: 'card_known', message: 'This card was already added' });
     return reply.code(201).send({ id: saved.id });
   });
@@ -246,7 +254,7 @@ async function handlePaymentEvent(
   paymentId: string | undefined,
   chargeId: string | undefined,
 ): Promise<string | null> {
-  if (type !== 'payment_paid' && type !== 'payment_failed') return 'ignored';
+  if (type !== 'payment_paid' && type !== 'payment_failed' && type !== 'payment_refunded') return 'ignored';
   if (!paymentId || !chargeId || !/^[0-9a-f-]{36}$/.test(chargeId)) return 'not_ours';
   const found = (
     await deps.workerPool.query<{ client_id: string }>(`SELECT client_id FROM app.billing_charges WHERE id = $1`, [chargeId])
@@ -255,7 +263,16 @@ async function handlePaymentEvent(
   const row = await withTenant(deps.pool, { clientId: found.client_id, actorType: 'system' }, async (db) =>
     (await db.query<ChargeRow>(`SELECT * FROM app.billing_charges WHERE id = $1`, [chargeId])).rows[0],
   );
-  if (!row || row.status === 'paid') return null;
+  if (!row) return 'not_ours';
+  if (type === 'payment_refunded') {
+    // A refund made in the provider's dashboard: a credit note for what was given back (7.8).
+    if (row.status !== 'paid') return 'not_paid';
+    const payment = await deps.gateway!.fetchPayment(paymentId);
+    if (!payment || payment.id !== row.gateway_payment_id) return 'payment_not_found';
+    const out = await creditRefund(deps, row.client_id, row.id, payment.refunded);
+    return out.status === 'issued' || out.status === 'nothing' ? null : `credit_note_${out.status}`;
+  }
+  if (row.status === 'paid') return null;
   // Never trust the message itself: ask the provider.
   const payment = await deps.gateway!.fetchPayment(paymentId);
   if (!payment) return 'payment_not_found';

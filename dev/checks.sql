@@ -418,5 +418,105 @@ BEGIN
   RAISE NOTICE 'PASS 16: subscription payments follow their rules';
 END $$;
 
+-- ---------------------------------------------------------------------
+-- 17. Tax invoices (0012)
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE c uuid := '11111111-1111-4111-8111-111111111111';
+        card uuid;
+        ch uuid;
+        n record;
+        inv uuid := gen_random_uuid();
+        h text := 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+BEGIN
+  PERFORM set_config('app.client_id', c::text, true);
+  PERFORM set_config('app.actor_type', 'system', true);
+  SELECT id INTO card FROM app.billing_cards WHERE status = 'active' LIMIT 1;
+  INSERT INTO app.billing_charges (client_id, card_id, reason, plan, billing_period, amount, vat_amount, period_start, period_end,
+                                   status, gateway_payment_id, finished_at)
+  VALUES (c, card, 'pay_now', 'legal', 'monthly', 115, 15, now(), now() + interval '1 month', 'paid', 'pay_check_17', now())
+  RETURNING id INTO ch;
+
+  -- The API cannot read or change the chain itself, only take the next link.
+  BEGIN
+    PERFORM 1 FROM app.invoice_chain;
+    RAISE EXCEPTION 'CHECK 17a FAILED: the API can read the invoice chain';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  SELECT * INTO n FROM app.invoice_chain_next();
+  ASSERT n.icv = 1 AND n.pih = 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==',
+    'CHECK 17b FAILED: the chain does not start at 1 with the hash of "0"';
+  BEGIN
+    PERFORM app.invoice_chain_save(5, h);
+    RAISE EXCEPTION 'CHECK 17c FAILED: the chain skipped a number';
+  EXCEPTION WHEN raise_exception THEN NULL;
+  END;
+
+  INSERT INTO app.invoices (id, client_id, kind, number, icv, pih, invoice_hash, charge_id, issued_at, supply_start, supply_end,
+                            net_amount, vat_amount, total_amount, buyer, xml, zatca_mode, status)
+  VALUES (inv, c, 'invoice', 'CHK-000001', n.icv, n.pih, h, ch, now(), current_date, current_date + 30,
+          100, 15, 115, '{}', '<Invoice/>', 'fake', 'pending');
+  PERFORM app.invoice_chain_save(n.icv, h);
+  ASSERT (SELECT icv FROM app.invoice_chain_next()) = 2, 'CHECK 17d FAILED: the chain did not move on';
+
+  -- One invoice per paid charge.
+  BEGIN
+    INSERT INTO app.invoices (id, client_id, kind, number, icv, pih, invoice_hash, charge_id, issued_at, supply_start, supply_end,
+                              net_amount, vat_amount, total_amount, buyer, xml, zatca_mode, status)
+    VALUES (gen_random_uuid(), c, 'invoice', 'CHK-000002', 2, h, h, ch, now(), current_date, current_date + 30,
+            100, 15, 115, '{}', '<Invoice/>', 'fake', 'pending');
+    RAISE EXCEPTION 'CHECK 17e FAILED: two invoices for one payment';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+  -- The totals must add up.
+  BEGIN
+    INSERT INTO app.invoices (id, client_id, kind, number, icv, pih, invoice_hash, issued_at, supply_start, supply_end,
+                              net_amount, vat_amount, total_amount, buyer, xml, zatca_mode, status)
+    VALUES (gen_random_uuid(), c, 'invoice', 'CHK-000003', 3, h, h, now(), current_date, current_date,
+            100, 15, 116, '{}', '<Invoice/>', 'fake', 'pending');
+    RAISE EXCEPTION 'CHECK 17f FAILED: a total that is not net plus VAT';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+
+  -- What was issued never changes, and only the system adds ZATCA's answer.
+  BEGIN
+    UPDATE app.invoices SET total_amount = 230, net_amount = 200, vat_amount = 30 WHERE id = inv;
+    RAISE EXCEPTION 'CHECK 17g FAILED: an issued invoice was changed';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  PERFORM set_config('app.actor_type', 'user', true);
+  BEGIN
+    UPDATE app.invoices SET status = 'cleared', cleared_xml = '<Invoice/>', cleared_at = now() WHERE id = inv;
+    RAISE EXCEPTION 'CHECK 17h FAILED: staff marked an invoice cleared';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  PERFORM set_config('app.actor_type', 'system', true);
+  UPDATE app.invoices SET status = 'cleared', cleared_xml = '<Invoice/>', cleared_at = now() WHERE id = inv;
+  BEGIN
+    UPDATE app.invoices SET status = 'rejected' WHERE id = inv;
+    RAISE EXCEPTION 'CHECK 17i FAILED: a cleared invoice changed state';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    DELETE FROM app.invoices WHERE id = inv;
+    RAISE EXCEPTION 'CHECK 17j FAILED: an invoice was deleted';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+
+  -- A national address must look like one.
+  BEGIN
+    UPDATE app.clients SET address_building = '12', address_postal = '1234' WHERE id = c;
+    RAISE EXCEPTION 'CHECK 17k FAILED: a badly formed national address was saved';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+
+  -- Another company sees none of it.
+  PERFORM set_config('app.client_id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
+  ASSERT (SELECT count(*) FROM app.invoices) = 0, 'CHECK 17l FAILED: another company can see an invoice';
+  PERFORM set_config('app.client_id', c::text, true);
+
+  RAISE NOTICE 'PASS 17: tax invoices follow their rules';
+END $$;
+
 ROLLBACK;
 \echo 'All database checks passed.'

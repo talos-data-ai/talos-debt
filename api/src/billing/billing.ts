@@ -4,6 +4,8 @@ import { withTenant, type Db } from '../db.js';
 import type { Mailer } from '../login/mailer.js';
 import { billingEmail, type BillingEmailFacts, type BillingEmailKind } from './emails.js';
 import { GatewayRefused, GatewayUnavailable, type GatewayPayment, type PaymentGateway } from './gateway.js';
+import { invoiceCharge } from './invoices.js';
+import type { ZatcaClient } from './zatca/client.js';
 import { priceFor, toHalalas, type Period, type Plan, type Pricing } from './pricing.js';
 
 /**
@@ -31,6 +33,8 @@ export interface BillingDeps {
   gateway: PaymentGateway | undefined;
   pricing: Pricing | null;
   mailer: Mailer;
+  /** Tax invoices (7.8): ZATCA, or null when invoices are made but not sent (ZATCA_MODE=off). */
+  zatca?: ZatcaClient | null;
   now: () => Date;
   log?: { info: (o: object, msg: string) => void; error: (o: object, msg: string) => void };
 }
@@ -64,6 +68,7 @@ export interface ChargeRow {
   period_end: Date;
   status: 'sending' | 'paid' | 'failed';
   requested_by: string | null;
+  gateway_payment_id?: string | null;
 }
 
 interface ClientBilling {
@@ -78,7 +83,7 @@ interface ClientBilling {
   timezone: string;
 }
 
-const billingLink = (config: Config) => `${config.APP_URL.replace(/\/+$/, '')}/settings/billing`;
+export const billingLink = (config: Config) => `${config.APP_URL.replace(/\/+$/, '')}/settings/billing`;
 
 async function loadClient(db: Db, lock = false): Promise<ClientBilling> {
   return (
@@ -107,13 +112,13 @@ export function dueReason(c: ClientBilling, now: Date, asked: ChargeReason): Cha
 }
 
 /** Owners and admins: who gets billing emails. */
-async function recipients(db: Db): Promise<string[]> {
+export async function recipients(db: Db): Promise<string[]> {
   return (
     await db.query<{ email: string }>(`SELECT email FROM app.users WHERE role IN ('owner', 'admin') AND is_active ORDER BY role DESC, email`)
   ).rows.map((r) => r.email);
 }
 
-async function notify(db: Db, now: Date, title: string, data: Record<string, unknown>) {
+export async function notify(db: Db, now: Date, title: string, data: Record<string, unknown>) {
   await db.query(
     `INSERT INTO app.notifications (client_id, kind, title, target_table, created_at, data)
      VALUES (app.current_client_id(), 'system', $1, 'billing', $2, $3)`,
@@ -121,7 +126,7 @@ async function notify(db: Db, now: Date, title: string, data: Record<string, unk
   );
 }
 
-async function audit(db: Db, action: string, details: Record<string, unknown>, userId?: string | null) {
+export async function audit(db: Db, action: string, details: Record<string, unknown>, userId?: string | null) {
   await db.query(
     `INSERT INTO audit.activity_log (client_id, actor_type, actor_id, action, target_table, target_id, details)
      VALUES (app.current_client_id(), $1, $2, $3, 'app.clients', app.current_client_id(), $4)`,
@@ -322,6 +327,12 @@ export async function finishCharge(deps: BillingDeps, row: ChargeRow, r: Result,
     },
   );
   await sendMails(deps, mails);
+  // The tax invoice (7.8) comes after the payment is saved: a problem with it never undoes a payment.
+  if (outcome.status === 'paid' && mails.some((m) => m.kind === 'paid')) {
+    await invoiceCharge(deps, row.client_id, row.id, true).catch((err) =>
+      deps.log?.error({ charge: row.id, err: (err as Error).message }, 'invoice could not be made; the scheduler tries again'),
+    );
+  }
   return outcome;
 }
 

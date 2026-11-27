@@ -31,6 +31,8 @@ export interface GatewayPayment {
   /** Whole halalas. */
   amount: bigint;
   currency: string;
+  /** Whole halalas given back so far (a refund made in the provider's dashboard). */
+  refunded: bigint;
   /** The provider's words when it failed (for staff). */
   message: string | null;
   metadata: Record<string, string>;
@@ -165,6 +167,7 @@ export class FakeGateway implements PaymentGateway {
       status: (outcome === 'paid' ? 'paid' : 'failed') as PaymentStatus,
       amount: req.amount,
       currency: 'SAR',
+      refunded: 0n,
       message: outcome === 'paid' ? null : outcome === 'insufficient' ? 'Insufficient Funds' : 'Declined',
       metadata: req.metadata,
       givenId: req.givenId,
@@ -176,6 +179,14 @@ export class FakeGateway implements PaymentGateway {
 
   async fetchPayment(id: string): Promise<GatewayPayment | null> {
     return this.payments.get(id) ?? null;
+  }
+
+  /** As a refund made in the provider's dashboard: gives back `amount` halalas of a payment. */
+  refund(id: string, amount: bigint): void {
+    const p = this.payments.get(id);
+    if (!p || p.refunded + amount > p.amount) throw new Error('fake refund: unknown payment or too much');
+    p.refunded += amount;
+    if (p.refunded === p.amount) p.status = 'refunded';
   }
 
   readonly verified: { webhookId: string; code: string }[] = [];

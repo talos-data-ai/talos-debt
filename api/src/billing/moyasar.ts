@@ -31,6 +31,7 @@ interface MoyasarPayment {
   status: PaymentStatus;
   amount: number;
   currency: string;
+  refunded?: number | null;
   message?: string | null;
   metadata?: Record<string, string> | null;
   source?: { message?: string | null } | null;
@@ -97,6 +98,7 @@ export class MoyasarGateway implements PaymentGateway {
       status: p.status,
       amount: BigInt(p.amount),
       currency: p.currency,
+      refunded: BigInt(p.refunded ?? 0),
       message: p.source?.message ?? p.message ?? null,
       metadata: p.metadata ?? {},
     };

@@ -149,6 +149,8 @@ jobs:
           DATABASE_URL=postgres://talos_api:talos_api_dev@localhost:5432/talos_dev \
           WORKER_DATABASE_URL=postgres://talos_jobs:talos_jobs_dev@localhost:5432/talos_dev \
           WHATSAPP_DEV_REDIRECT_TO=+966500000000 STORAGE_DRIVER=local LOG_LEVEL=warn PAYMENT_DRIVER=fake \
+          ZATCA_MODE=fake SELLER_NAME='Test Seller' SELLER_VAT_NUMBER=300000000000003 SELLER_CR=1010000000 \
+          SELLER_BUILDING=1234 SELLER_STREET='Test Street' SELLER_DISTRICT='Test District' SELLER_CITY=Jeddah SELLER_POSTAL=23456 \
           PRICING_JSON='{"vat":"excluded","founding_offer":true,"tiers":[{"monthly":"100","yearly":"1000"},{"monthly":"200","yearly":"2000"},{"monthly":"300","yearly":"3000"}]}' \
           nohup npx tsx src/server.ts > ../api.log 2>&1 &
           cd ../web && nohup npx vite --port 5173 --strictPort > ../web.log 2>&1 &

@@ -71,9 +71,32 @@ export interface Price {
 export function priceFor(pricing: Pricing, plan: Plan, period: Period): Price {
   const listed = toHalalas(pricing.tiers[PLANS.indexOf(plan)]![period]);
   if (pricing.vat === 'excluded') {
-    const vat = divRound(listed * VAT_PERCENT, 100n);
+    const vat = vatOn(listed);
     return { amount: fromHalalas(listed + vat), vat: fromHalalas(vat), net: fromHalalas(listed) };
   }
-  const net = divRound(listed * 100n, 100n + VAT_PERCENT);
-  return { amount: fromHalalas(listed), vat: fromHalalas(listed - net), net: fromHalalas(net) };
+  // The tax is always worked out from the net amount (as on the invoice), so with the tax
+  // included the net is the largest one whose total is not more than the listed price.
+  // Almost always that total is the listed price itself; otherwise it is a halala less.
+  const s = splitTotal(listed) ?? splitBelow(listed);
+  return { amount: fromHalalas(s.net + s.vat), vat: fromHalalas(s.vat), net: fromHalalas(s.net) };
+}
+
+/** The tax on a net amount, in halalas: 15%, rounded to the nearest halala, halves up. */
+export function vatOn(net: bigint): bigint {
+  return divRound(net * VAT_PERCENT, 100n);
+}
+
+/** The net amount and tax that make exactly this total (halalas), or null if no net amount does. */
+export function splitTotal(total: bigint): { net: bigint; vat: bigint } | null {
+  const guess = divRound(total * 100n, 100n + VAT_PERCENT);
+  for (const net of [guess - 1n, guess, guess + 1n]) {
+    if (net > 0n && net + vatOn(net) === total) return { net, vat: vatOn(net) };
+  }
+  return null;
+}
+
+function splitBelow(total: bigint): { net: bigint; vat: bigint } {
+  let net = divRound(total * 100n, 100n + VAT_PERCENT) + 1n;
+  while (net + vatOn(net) > total) net--;
+  return { net, vat: vatOn(net) };
 }

@@ -33,6 +33,6 @@ To try the whole dashboard against the sandbox on your computer: set `PAYMENT_DR
 
 1. Live keys (`sk_live_`, `pk_live_`) go straight into the secret manager. The API refuses test keys in production and live keys anywhere else.
 2. Set `PAYMENT_DRIVER=moyasar`, `MOYASAR_WEBHOOK_SECRET` and `PRICING_FILE` for the API and the scheduler.
-3. Add the webhook: `npm run moyasar:sandbox -- --webhook https://<API address>/webhooks/moyasar` in test mode first, then the same in Moyasar's dashboard for live mode, with events `payment_paid` and `payment_failed` and the same secret. Moyasar sends a code to a new webhook; the API confirms it on its own, so the API must be running.
+3. Add the webhook: `npm run moyasar:sandbox -- --webhook https://<API address>/webhooks/moyasar` in test mode first, then the same in Moyasar's dashboard for live mode, with events `payment_paid`, `payment_failed` and `payment_refunded` (a refund made in the dashboard gets a credit note) and the same secret. Moyasar sends a code to a new webhook; the API confirms it on its own, so the API must be running.
 4. Turn on Moyasar's allowed addresses list (Settings) with the API's and the scheduler's outgoing addresses, so the secret key works from nowhere else.
 5. Apple Pay: verify the domain in Moyasar's dashboard once the site is hosted.

@@ -6,6 +6,7 @@ import { planTasks, type PlanResult } from './planner.js';
 import { sendDailySummaries } from './summary.js';
 import { runTask, type TaskOutcome } from './tasks.js';
 import { runBilling, type BillingDeps, type BillingRound } from '../billing/billing.js';
+import { runInvoices, type InvoiceRound } from '../billing/invoices.js';
 
 export interface SchedulerDeps {
   /** API pool (talos_api, RLS applies): all work on client data. */
@@ -26,6 +27,7 @@ export interface TickResult {
   ran: { id: string; type: string; outcome: TaskOutcome }[];
   summaries: number;
   billing?: BillingRound;
+  invoices?: InvoiceRound;
 }
 
 /**
@@ -80,13 +82,15 @@ export class Scheduler {
     const summaries = await sendDailySummaries(this.deps, config.DAILY_SUMMARY_TIME);
     const billing = this.deps.billing ? await runBilling({ ...this.deps.billing, now }) : undefined;
     if (billing && (billing.charged || billing.recovered || billing.notices)) this.deps.log?.info({ billing }, 'scheduler: billing');
+    const invoices = this.deps.billing ? await runInvoices({ ...this.deps.billing, now }) : undefined;
+    if (invoices && (invoices.issued || invoices.sent)) this.deps.log?.info({ invoices }, 'scheduler: invoices');
     if (ran.length || summaries || recovered.requeued || recovered.closed || planned?.reminders || planned?.legal) {
       this.deps.log?.info(
         { recovered, planned, ran: ran.length, summaries },
         `scheduler: ran ${ran.length} task(s)`,
       );
     }
-    return { recovered, planned, ran, summaries, billing };
+    return { recovered, planned, ran, summaries, billing, invoices };
   }
 
   /** Run ticks until stop() is called. Errors are logged and the next tick tries again. */
