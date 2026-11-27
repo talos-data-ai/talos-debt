@@ -389,6 +389,12 @@ describe("the provider's webhook", () => {
     expect(stored[0].p).not.toContain(SECRET);
   });
 
+  it('confirms a new webhook with the code the provider sends to it', async () => {
+    const res = await app.inject({ method: 'POST', url: '/webhooks/moyasar', payload: event({ type: 'webhook_verification', data: { id: 'wh_1', verification_code: '482913' } }) });
+    expect(res.json()).toEqual({ received: 1 });
+    expect(gateway.verified).toEqual([{ webhookId: 'wh_1', code: '482913' }]);
+  });
+
   it('ignores live events outside production, and payments that are not ours', async () => {
     expect((await app.inject({ method: 'POST', url: '/webhooks/moyasar', payload: event({ live: true }) })).json()).toEqual({ ignored: 'mode' });
     await app.inject({ method: 'POST', url: '/webhooks/moyasar', payload: event({ id: 'evt_x1', data: { id: 'pay_x', metadata: { charge_id: '00000000-0000-4000-8000-000000000000' } } }) });

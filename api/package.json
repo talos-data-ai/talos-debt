@@ -11,7 +11,8 @@
     "scheduler": "tsx src/scheduler/main.ts",
     "scheduler:start": "node dist/src/scheduler/main.js",
     "najiz": "tsx src/najiz/main.ts",
-    "najiz:start": "node dist/src/najiz/main.js"
+    "najiz:start": "node dist/src/najiz/main.js",
+    "moyasar:sandbox": "tsx scripts/moyasar-sandbox.ts"
   },
   "private": "true",
   "type": "module",

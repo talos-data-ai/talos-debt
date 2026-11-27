@@ -69,6 +69,8 @@ export interface PaymentGateway {
    */
   charge(req: ChargeRequest): Promise<GatewayPayment>;
   fetchPayment(id: string): Promise<GatewayPayment | null>;
+  /** A new webhook receives nothing until it is confirmed with the code the provider sends to it. */
+  verifyWebhook?(webhookId: string, code: string): Promise<void>;
 }
 
 /** The provider could not be reached or answered with an error: the outcome is unknown. */
@@ -174,5 +176,10 @@ export class FakeGateway implements PaymentGateway {
 
   async fetchPayment(id: string): Promise<GatewayPayment | null> {
     return this.payments.get(id) ?? null;
+  }
+
+  readonly verified: { webhookId: string; code: string }[] = [];
+  async verifyWebhook(webhookId: string, code: string): Promise<void> {
+    this.verified.push({ webhookId, code });
   }
 }
